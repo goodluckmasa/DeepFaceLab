@@ -821,7 +821,10 @@ NLayerDiscriminator = nnlib.NLayerDiscriminator
                 self.weights = [self.iterations] + accumulators
                 self.updates = [K.update_add(self.iterations, 1)]
 
-                lr = self.learning_rate
+                lr = nnlib.tf.cond(nnlib.tf.greater(self.iterations, nnlib.tf.constant(10, dtype='int32')),
+                                   lambda: self.learning_rate,
+                                   lambda: nnlib.tf.constant(0.0))
+
                 if self.initial_decay > 0:
                     lr = lr * (1. / (1. + self.decay * K.cast(self.iterations,
                                                             K.dtype(self.decay))))
