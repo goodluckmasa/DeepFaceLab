@@ -821,7 +821,7 @@ NLayerDiscriminator = nnlib.NLayerDiscriminator
                 self.weights = [self.iterations] + accumulators
                 self.updates = [K.update_add(self.iterations, 1)]
 
-                lr = nnlib.tf.cond(nnlib.tf.greater(self.iterations, nnlib.tf.constant(10, dtype='int32')),
+                lr = nnlib.tf.cond(nnlib.tf.greater(self.iterations, nnlib.tf.constant(10, dtype='int64')),
                                    lambda: self.learning_rate,
                                    lambda: nnlib.tf.constant(0.0))
 
