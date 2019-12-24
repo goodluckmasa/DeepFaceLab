@@ -151,6 +151,7 @@ NLayerDiscriminator = nnlib.NLayerDiscriminator
         warnings.simplefilter(action='ignore', category=FutureWarning)
 
         import tensorflow as tf
+        tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
         nnlib.tf = tf
 
         if device_config.cpu_only:
