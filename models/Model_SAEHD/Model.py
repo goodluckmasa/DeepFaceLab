@@ -61,6 +61,7 @@ class SAEHDModel(ModelBase):
             self.options['ae_dims'] = self.options.get('ae_dims', default_ae_dims)
             self.options['ed_ch_dims'] = self.options.get('ed_ch_dims', default_ed_ch_dims)
 
+        default_src_dst_loss_ratio = self.options.get('src_dst_loss_ratio', 50.0)
         default_background_power = self.options.get('background_power', 0.0)
         default_true_face_training = self.options.get('true_face_training', False)
         default_true_face_power = self.options.get('true_face_power', 1.0)
@@ -80,6 +81,10 @@ class SAEHDModel(ModelBase):
             #     "Use absolute loss (L1 norm)? (y/n, ?:help skip: %s ) : " % (yn_str[def_absolute_loss]),
             #     def_absolute_loss,
             #     help_message="")
+
+            self.options['src_dst_loss_ratio'] = np.clip(io.input_number(f"Ratio of src to dst loss: ( 0.0 .. 100.0 ?:help skip:{default_src_dst_loss_ratio}) : ",
+                                                                         default_src_dst_loss_ratio,
+                                                                         help_message="Allows you to skew the ratio of loss from src and dst. 50% means no change. E.g.: (75) -> loss = 75% src loss + 25% dst loss"), 0.0, 100.0)
 
             self.options['background_power'] = np.clip(io.input_number(f"Background src/dst power ( 0.0 .. 100.0 ?:help skip:{default_background_power}) : ",
                                                                        default_background_power,
@@ -134,6 +139,7 @@ class SAEHDModel(ModelBase):
             self.options['ms_ssim_loss'] = self.options.get('ms_ssim_loss', True)
             self.options['absolute_loss'] = self.options.get('absolute_loss', False)
             self.options['random_warp'] = self.options.get('random_warp', True)
+            self.options['src_dst_loss_ratio'] = self.options.get('src_dst_loss_ratio', 50)
             self.options['background_power'] = self.options.get('background_power', default_background_power)
             self.options['true_face_training'] = self.options.get('true_face_training', default_true_face_training)
             self.options['true_face_power'] = self.options.get('true_face_power', default_true_face_power)
@@ -565,8 +571,8 @@ class SAEHDModel(ModelBase):
                     src_loss += K.mean( (10*bg_style_power)*dssim(kernel_size=int(resolution/11.6),max_value=1.0)( psd_target_dst_anti_masked, target_dst_anti_masked ))
                     src_loss += K.mean( (10*bg_style_power)*K.square( psd_target_dst_anti_masked - target_dst_anti_masked ))
 
-
-            G_loss = src_loss+dst_loss
+            src_dst_loss_ratio = 2 * self.options['src_dst_loss_ratio'] / 100.0
+            G_loss = src_dst_loss_ratio * src_loss + (2-src_dst_loss_ratio) * dst_loss
 
             if self.true_face_training:
                 def DLoss(labels,logits):
@@ -599,7 +605,9 @@ class SAEHDModel(ModelBase):
                 else:
                     src_mask_loss = K.mean(K.square(self.model.target_srcm-self.model.pred_src_srcm))
                     dst_mask_loss = K.mean(K.square(self.model.target_dstm-self.model.pred_dst_dstm))
-                self.src_dst_mask_train = K.function ([self.model.warped_src, self.model.warped_dst, self.model.target_srcm, self.model.target_dstm],[src_mask_loss, dst_mask_loss], self.src_dst_mask_opt.get_updates(src_mask_loss+dst_mask_loss, self.model.src_dst_mask_trainable_weights ) )
+
+                mask_loss = src_dst_loss_ratio * src_mask_loss + (2-src_dst_loss_ratio) * dst_mask_loss
+                self.src_dst_mask_train = K.function ([self.model.warped_src, self.model.warped_dst, self.model.target_srcm, self.model.target_dstm],[src_mask_loss, dst_mask_loss], self.src_dst_mask_opt.get_updates(mask_loss, self.model.src_dst_mask_trainable_weights ) )
 
             if self.options['learn_mask']:
                 self.AE_view = K.function ([self.model.warped_src, self.model.warped_dst], [self.model.pred_src_src, self.model.pred_src_srcm, self.model.pred_dst_dst, self.model.pred_dst_dstm, self.model.pred_src_dst, self.model.pred_src_dstm])
