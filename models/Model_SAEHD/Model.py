@@ -274,6 +274,10 @@ class SAEHDModel(ModelBase):
 
                 self.encoder = modelify(enc_flow(e_ch_dims, ae_dims, lowest_dense_res)) ( Input(bgr_shape) )
 
+                if freeze_encoder:
+                    for l in self.encoder.layers:
+                        l.trainable = False
+
                 sh = K.int_shape( self.encoder.outputs[0] )[1:]
                 self.decoder_src = modelify(dec_flow(output_nc, d_ch_dims)) ( Input(sh) )
                 self.decoder_dst = modelify(dec_flow(output_nc, d_ch_dims)) ( Input(sh) )
@@ -394,6 +398,9 @@ class SAEHDModel(ModelBase):
                     return func
 
                 self.encoder = modelify(enc_flow(e_ch_dims)) ( Input(bgr_shape) )
+                if freeze_encoder:
+                    for l in self.encoder.layers:
+                        l.trainable = False
 
                 sh = K.int_shape( self.encoder.outputs[0] )[1:]
                 self.inter_B = modelify(inter_flow(lowest_dense_res, ae_dims)) ( Input(sh) )
