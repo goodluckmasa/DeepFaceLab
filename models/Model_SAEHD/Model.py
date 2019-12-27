@@ -401,6 +401,8 @@ class SAEHDModel(ModelBase):
                 if freeze_encoder:
                     for l in self.encoder.layers:
                         l.trainable = False
+                    self.inter_AB.layers[0].trainable = False
+                    self.inter_B.layers[0].trainable = False
 
                 sh = K.int_shape( self.encoder.outputs[0] )[1:]
                 self.inter_B = modelify(inter_flow(lowest_dense_res, ae_dims)) ( Input(sh) )
@@ -419,6 +421,9 @@ class SAEHDModel(ModelBase):
 
                 io.log_info ("Encoder summary: ")
                 io.log_info (self.encoder.summary())
+
+                io.log_info ("Inter AB summary: ")
+                io.log_info (self.inter_AB.summary())
 
                 if learn_mask:
                     if freeze_encoder:
