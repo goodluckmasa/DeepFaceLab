@@ -286,17 +286,10 @@ class SAEHDModel(ModelBase):
                     self.decoder_srcm = modelify(dec_flow(1, d_ch_dims, is_mask=True)) ( Input(sh) )
                     self.decoder_dstm = modelify(dec_flow(1, d_ch_dims, is_mask=True)) ( Input(sh) )
 
-                if freeze_encoder:
-                    self.src_dst_trainable_weights = self.decoder_src.trainable_weights + self.decoder_dst.trainable_weights
-                else:
-                    self.src_dst_trainable_weights = self.encoder.trainable_weights + self.decoder_src.trainable_weights + self.decoder_dst.trainable_weights
-
+                self.src_dst_trainable_weights = self.encoder.trainable_weights + self.decoder_src.trainable_weights + self.decoder_dst.trainable_weights
 
                 if learn_mask:
-                    if freeze_encoder:
-                        self.src_dst_mask_trainable_weights = self.decoder_srcm.trainable_weights + self.decoder_dstm.trainable_weights
-                    else:
-                        self.src_dst_mask_trainable_weights = self.encoder.trainable_weights + self.decoder_srcm.trainable_weights + self.decoder_dstm.trainable_weights
+                    self.src_dst_mask_trainable_weights = self.encoder.trainable_weights + self.decoder_srcm.trainable_weights + self.decoder_dstm.trainable_weights
 
                 self.warped_src, self.warped_dst = Input(bgr_shape), Input(bgr_shape)
                 self.target_src, self.target_dst = Input(bgr_shape), Input(bgr_shape)
@@ -417,9 +410,6 @@ class SAEHDModel(ModelBase):
                 if learn_mask:
                     self.decoderm = modelify(dec_flow(1, d_ch_dims, is_mask=True)) ( Input(sh) )
 
-                # if freeze_encoder:
-                #     self.src_dst_trainable_weights = self.inter_B.trainable_weights + self.inter_AB.trainable_weights + self.decoder.trainable_weights
-                # else:
                 self.src_dst_trainable_weights = self.encoder.trainable_weights + self.inter_B.trainable_weights + self.inter_AB.trainable_weights + self.decoder.trainable_weights
 
                 io.log_info ("Encoder summary: ")
@@ -428,10 +418,13 @@ class SAEHDModel(ModelBase):
                 io.log_info ("Inter AB summary: ")
                 io.log_info (self.inter_AB.summary())
 
+                io.log_info ("Inter B summary: ")
+                io.log_info (self.inter_B.summary())
+
+                io.log_info ("Decoder summary: ")
+                io.log_info (self.decoder.summary())
+
                 if learn_mask:
-                    # if freeze_encoder:
-                    #     self.src_dst_mask_trainable_weights = self.inter_B.trainable_weights + self.inter_AB.trainable_weights + self.decoderm.trainable_weights
-                    # else:
                     self.src_dst_mask_trainable_weights = self.encoder.trainable_weights + self.inter_B.trainable_weights + self.inter_AB.trainable_weights + self.decoderm.trainable_weights
 
                 self.warped_src, self.warped_dst = Input(bgr_shape), Input(bgr_shape)
