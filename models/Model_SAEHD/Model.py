@@ -410,6 +410,9 @@ class SAEHDModel(ModelBase):
                 else:
                     self.src_dst_trainable_weights = self.encoder.trainable_weights + self.inter_B.trainable_weights + self.inter_AB.trainable_weights + self.decoder.trainable_weights
 
+                io.log_info ("Encoder summary: ")
+                io.log_info (self.encoder.summary())
+
                 if learn_mask:
                     if freeze_encoder:
                         self.src_dst_mask_trainable_weights = self.inter_B.trainable_weights + self.inter_AB.trainable_weights + self.decoderm.trainable_weights
