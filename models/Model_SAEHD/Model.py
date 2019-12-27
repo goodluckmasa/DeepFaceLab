@@ -273,9 +273,6 @@ class SAEHDModel(ModelBase):
                     return func
 
                 self.encoder = modelify(enc_flow(e_ch_dims, ae_dims, lowest_dense_res)) ( Input(bgr_shape) )
-                if freeze_encoder:
-                    for layer in self.encoder.layers:
-                        layer.trainable = False
 
                 sh = K.int_shape( self.encoder.outputs[0] )[1:]
                 self.decoder_src = modelify(dec_flow(output_nc, d_ch_dims)) ( Input(sh) )
@@ -285,10 +282,17 @@ class SAEHDModel(ModelBase):
                     self.decoder_srcm = modelify(dec_flow(1, d_ch_dims, is_mask=True)) ( Input(sh) )
                     self.decoder_dstm = modelify(dec_flow(1, d_ch_dims, is_mask=True)) ( Input(sh) )
 
-                self.src_dst_trainable_weights = self.encoder.trainable_weights + self.decoder_src.trainable_weights + self.decoder_dst.trainable_weights
+                if freeze_encoder:
+                    self.src_dst_trainable_weights = self.decoder_src.trainable_weights + self.decoder_dst.trainable_weights
+                else:
+                    self.src_dst_trainable_weights = self.encoder.trainable_weights + self.decoder_src.trainable_weights + self.decoder_dst.trainable_weights
+
 
                 if learn_mask:
-                    self.src_dst_mask_trainable_weights = self.encoder.trainable_weights + self.decoder_srcm.trainable_weights + self.decoder_dstm.trainable_weights
+                    if freeze_encoder:
+                        self.src_dst_mask_trainable_weights = self.decoder_srcm.trainable_weights + self.decoder_dstm.trainable_weights
+                    else:
+                        self.src_dst_mask_trainable_weights = self.encoder.trainable_weights + self.decoder_srcm.trainable_weights + self.decoder_dstm.trainable_weights
 
                 self.warped_src, self.warped_dst = Input(bgr_shape), Input(bgr_shape)
                 self.target_src, self.target_dst = Input(bgr_shape), Input(bgr_shape)
@@ -390,9 +394,6 @@ class SAEHDModel(ModelBase):
                     return func
 
                 self.encoder = modelify(enc_flow(e_ch_dims)) ( Input(bgr_shape) )
-                if freeze_encoder:
-                    for layer in self.encoder.layers:
-                         layer.trainable = False
 
                 sh = K.int_shape( self.encoder.outputs[0] )[1:]
                 self.inter_B = modelify(inter_flow(lowest_dense_res, ae_dims)) ( Input(sh) )
@@ -404,10 +405,16 @@ class SAEHDModel(ModelBase):
                 if learn_mask:
                     self.decoderm = modelify(dec_flow(1, d_ch_dims, is_mask=True)) ( Input(sh) )
 
-                self.src_dst_trainable_weights = self.encoder.trainable_weights + self.inter_B.trainable_weights + self.inter_AB.trainable_weights + self.decoder.trainable_weights
+                if freeze_encoder:
+                    self.src_dst_trainable_weights = self.inter_B.trainable_weights + self.inter_AB.trainable_weights + self.decoder.trainable_weights
+                else:
+                    self.src_dst_trainable_weights = self.encoder.trainable_weights + self.inter_B.trainable_weights + self.inter_AB.trainable_weights + self.decoder.trainable_weights
 
                 if learn_mask:
-                    self.src_dst_mask_trainable_weights = self.encoder.trainable_weights + self.inter_B.trainable_weights + self.inter_AB.trainable_weights + self.decoderm.trainable_weights
+                    if freeze_encoder:
+                        self.src_dst_mask_trainable_weights = self.inter_B.trainable_weights + self.inter_AB.trainable_weights + self.decoderm.trainable_weights
+                    else:
+                        self.src_dst_mask_trainable_weights = self.encoder.trainable_weights + self.inter_B.trainable_weights + self.inter_AB.trainable_weights + self.decoderm.trainable_weights
 
                 self.warped_src, self.warped_dst = Input(bgr_shape), Input(bgr_shape)
                 self.target_src, self.target_dst = Input(bgr_shape), Input(bgr_shape)
