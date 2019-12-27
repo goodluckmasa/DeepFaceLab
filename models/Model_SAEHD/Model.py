@@ -174,7 +174,7 @@ class SAEHDModel(ModelBase):
 
         self.true_face_training = self.options.get('true_face_training', False)
         masked_training = True
-        freeze_encoder = not self.options['freeze_encoder']
+        freeze_encoder = self.options['freeze_encoder']
 
         class CommonModel(object):
             def downscale (self, dim, kernel_size=5, dilation_rate=1, use_activator=True):
