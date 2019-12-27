@@ -66,6 +66,7 @@ class SAEHDModel(ModelBase):
         default_true_face_power = self.options.get('true_face_power', 1.0)
         default_face_style_power = self.options.get('face_style_power', 0.0)
         default_bg_style_power = self.options.get('bg_style_power', 0.0)
+        default_freeze_encoder = False if is_first_run else self.options.get('freeze_encoder', False)
 
         if is_first_run or ask_override:
             default_multiscale_loss = self.options.get('multiscale_loss', True)
@@ -124,6 +125,10 @@ class SAEHDModel(ModelBase):
             else:
                 self.options['clipgrad'] = False
 
+            self.options['freeze_encoder'] = io.input_bool(
+                f'Freeze encoder layers? (y/n, ?:help skip:{yn_str[default_freeze_encoder]}) : ',
+                help_message="Freezes the weights in the encoder layers, use less memory and increases training speed")
+
         else:
             self.options['ms_ssim_loss'] = self.options.get('ms_ssim_loss', True)
             self.options['absolute_loss'] = self.options.get('absolute_loss', False)
@@ -136,6 +141,7 @@ class SAEHDModel(ModelBase):
             self.options['ct_mode'] = self.options.get('ct_mode', 0)
             self.options['random_color_change'] = self.options.get('random_color_change', False)
             self.options['clipgrad'] = self.options.get('clipgrad', False)
+            self.options['freeze_encoder'] = self.options.get('freeze_encoder', default_freeze_encoder)
 
         if is_first_run:
             self.options['pretrain'] = io.input_bool ("Pretrain the model? (y/n, ?:help skip:n) : ", False, help_message="Pretrain the model with large amount of various faces. This technique may help to train the fake with overly different face shapes and light conditions of src/dst data. Face will be look more like a morphed. To reduce the morph effect, some model files will be initialized but not be updated after pretrain: LIAE: inter_AB.h5 DF: encoder.h5. The longer you pretrain the model the more morphed face will look. After that, save and run the training again.")
@@ -161,6 +167,7 @@ class SAEHDModel(ModelBase):
 
         self.true_face_training = self.options.get('true_face_training', False)
         masked_training = True
+        freeze_encoder = self.options['freeze_encoder']
 
         class CommonModel(object):
             def downscale (self, dim, kernel_size=5, dilation_rate=1, use_activator=True):
@@ -259,6 +266,9 @@ class SAEHDModel(ModelBase):
                     return func
 
                 self.encoder = modelify(enc_flow(e_ch_dims, ae_dims, lowest_dense_res)) ( Input(bgr_shape) )
+                if freeze_encoder:
+                    for layer in self.encoder.layers:
+                        layer.trainable = False
 
                 sh = K.int_shape( self.encoder.outputs[0] )[1:]
                 self.decoder_src = modelify(dec_flow(output_nc, d_ch_dims)) ( Input(sh) )
@@ -373,6 +383,9 @@ class SAEHDModel(ModelBase):
                     return func
 
                 self.encoder = modelify(enc_flow(e_ch_dims)) ( Input(bgr_shape) )
+                if freeze_encoder:
+                    for layer in self.encoder.layers:
+                         layer.trainable = False
 
                 sh = K.int_shape( self.encoder.outputs[0] )[1:]
                 self.inter_B = modelify(inter_flow(lowest_dense_res, ae_dims)) ( Input(sh) )
