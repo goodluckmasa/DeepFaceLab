@@ -67,7 +67,8 @@ class SAEHDModel(ModelBase):
         default_true_face_power = self.options.get('true_face_power', 1.0)
         default_face_style_power = self.options.get('face_style_power', 0.0)
         default_bg_style_power = self.options.get('bg_style_power', 0.0)
-        default_freeze_encoder = False if is_first_run else self.options.get('freeze_encoder', False)
+        default_freeze_encoder = self.options.get('freeze_encoder', False)
+        default_freeze_mask = self.options.get('freeze_mask', False)
 
         if is_first_run or ask_override:
             default_multiscale_loss = self.options.get('multiscale_loss', True)
@@ -135,6 +136,11 @@ class SAEHDModel(ModelBase):
                 default_freeze_encoder,
                 help_message="Freezes the weights in the encoder layers, use less memory and increases training speed")
 
+            self.options['freeze_mask'] = io.input_bool(
+                f'Freeze mask decoder? (y/n, ?:help skip:{yn_str[default_freeze_mask]}) : ',
+                default_freeze_mask,
+                help_message="Freezes the weights in the mask decoder, use less memory and increases training speed")
+
         else:
             self.options['ms_ssim_loss'] = self.options.get('ms_ssim_loss', True)
             self.options['absolute_loss'] = self.options.get('absolute_loss', False)
@@ -149,6 +155,7 @@ class SAEHDModel(ModelBase):
             self.options['random_color_change'] = self.options.get('random_color_change', False)
             self.options['clipgrad'] = self.options.get('clipgrad', False)
             self.options['freeze_encoder'] = self.options.get('freeze_encoder', default_freeze_encoder)
+            self.options['freeze_mask'] = self.options.get('freeze_mask', default_freeze_encoder)
 
         if is_first_run:
             self.options['pretrain'] = io.input_bool ("Pretrain the model? (y/n, ?:help skip:n) : ", False, help_message="Pretrain the model with large amount of various faces. This technique may help to train the fake with overly different face shapes and light conditions of src/dst data. Face will be look more like a morphed. To reduce the morph effect, some model files will be initialized but not be updated after pretrain: LIAE: inter_AB.h5 DF: encoder.h5. The longer you pretrain the model the more morphed face will look. After that, save and run the training again.")
@@ -175,6 +182,7 @@ class SAEHDModel(ModelBase):
         self.true_face_training = self.options.get('true_face_training', False)
         masked_training = True
         freeze_encoder = self.options['freeze_encoder']
+        freeze_mask = self.options['freeze_mask']
 
         class CommonModel(object):
             def downscale (self, dim, kernel_size=5, dilation_rate=1, use_activator=True):
@@ -285,6 +293,11 @@ class SAEHDModel(ModelBase):
                 if learn_mask:
                     self.decoder_srcm = modelify(dec_flow(1, d_ch_dims, is_mask=True)) ( Input(sh) )
                     self.decoder_dstm = modelify(dec_flow(1, d_ch_dims, is_mask=True)) ( Input(sh) )
+                    if freeze_mask:
+                        for l in self.decoder_srcm.layers:
+                            l.trainable = False
+                        for l in self.decoder_dstm.layers:
+                            l.trainable = False
 
                 self.src_dst_trainable_weights = self.encoder.trainable_weights + self.decoder_src.trainable_weights + self.decoder_dst.trainable_weights
 
@@ -409,8 +422,14 @@ class SAEHDModel(ModelBase):
 
                 if learn_mask:
                     self.decoderm = modelify(dec_flow(1, d_ch_dims, is_mask=True)) ( Input(sh) )
+                    if freeze_mask:
+                        for l in self.decoderm.layers:
+                            l.trainable = False
 
                 self.src_dst_trainable_weights = self.encoder.trainable_weights + self.inter_B.trainable_weights + self.inter_AB.trainable_weights + self.decoder.trainable_weights
+
+                if learn_mask:
+                    self.src_dst_mask_trainable_weights = self.encoder.trainable_weights + self.inter_B.trainable_weights + self.inter_AB.trainable_weights + self.decoderm.trainable_weights
 
                 io.log_info ("Encoder summary: ")
                 io.log_info (self.encoder.summary())
@@ -425,7 +444,8 @@ class SAEHDModel(ModelBase):
                 io.log_info (self.decoder.summary())
 
                 if learn_mask:
-                    self.src_dst_mask_trainable_weights = self.encoder.trainable_weights + self.inter_B.trainable_weights + self.inter_AB.trainable_weights + self.decoderm.trainable_weights
+                    io.log_info ("Mask Decoder summary: ")
+                    io.log_info (self.decoderm.summary())
 
                 self.warped_src, self.warped_dst = Input(bgr_shape), Input(bgr_shape)
                 self.target_src, self.target_dst = Input(bgr_shape), Input(bgr_shape)
