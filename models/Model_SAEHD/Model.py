@@ -132,6 +132,7 @@ class SAEHDModel(ModelBase):
 
             self.options['freeze_encoder'] = io.input_bool(
                 f'Freeze encoder layers? (y/n, ?:help skip:{yn_str[default_freeze_encoder]}) : ',
+                default_freeze_encoder,
                 help_message="Freezes the weights in the encoder layers, use less memory and increases training speed")
 
         else:
