@@ -1,23 +1,22 @@
-import os
-import sys
-import time
-import argparse
-import multiprocessing
-from utils import Path_utils
-from utils import os_utils
-from pathlib import Path
-from interact import interact as io
-
-if sys.version_info[0] < 3 or (sys.version_info[0] == 3 and sys.version_info[1] < 6):
-    raise Exception("This program requires at least Python 3.6")
-
-class fixPathAction(argparse.Action):
-    def __call__(self, parser, namespace, values, option_string=None):
-        setattr(namespace, self.dest, os.path.abspath(os.path.expanduser(values)))
-
 if __name__ == "__main__":
+    import os
+    import sys
+    import time
+    import argparse
+    import multiprocessing
     multiprocessing.set_start_method("spawn")
+    from utils import Path_utils
+    from utils import os_utils
+    from pathlib import Path
+    from interact import interact as io
 
+    if sys.version_info[0] < 3 or (sys.version_info[0] == 3 and sys.version_info[1] < 6):
+        raise Exception("This program requires at least Python 3.6")
+
+    class fixPathAction(argparse.Action):
+        def __call__(self, parser, namespace, values, option_string=None):
+            setattr(namespace, self.dest, os.path.abspath(os.path.expanduser(values)))
+    
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers()
 
@@ -303,6 +302,21 @@ if __name__ == "__main__":
 
     p.set_defaults(func=process_labelingtool_edit_mask)
 
+    facesettool_parser = subparsers.add_parser( "facesettool", help="Faceset tools.").add_subparsers()
+
+    def process_faceset_enhancer(arguments):
+        os_utils.set_process_lowest_prio()
+        from mainscripts import FacesetEnhancer
+        FacesetEnhancer.process_folder ( Path(arguments.input_dir), multi_gpu=arguments.multi_gpu, cpu_only=arguments.cpu_only )
+        
+    p = facesettool_parser.add_parser ("enhance", help="Enhance details in DFL faceset.")
+    p.add_argument('--input-dir', required=True, action=fixPathAction, dest="input_dir", help="Input directory of aligned faces.")
+    p.add_argument('--multi-gpu', action="store_true", dest="multi_gpu", default=False, help="Enables multi GPU.")
+    p.add_argument('--cpu-only', action="store_true", dest="cpu_only", default=False, help="Process on CPU.")
+    
+    p.set_defaults(func=process_faceset_enhancer)
+    
+    """
     def process_relight_faceset(arguments):
         os_utils.set_process_lowest_prio()
         from mainscripts import FacesetRelighter
@@ -312,9 +326,7 @@ if __name__ == "__main__":
         os_utils.set_process_lowest_prio()
         from mainscripts import FacesetRelighter
         FacesetRelighter.delete_relighted (arguments.input_dir)
-
-    facesettool_parser = subparsers.add_parser( "facesettool", help="Faceset tools.").add_subparsers()
-
+        
     p = facesettool_parser.add_parser ("relight", help="Synthesize new faces from existing ones by relighting them. With the relighted faces neural network will better reproduce face shadows.")
     p.add_argument('--input-dir', required=True, action=fixPathAction, dest="input_dir", help="Input directory of aligned faces.")
     p.add_argument('--lighten', action="store_true", dest="lighten", default=None, help="Lighten the faces.")
@@ -324,6 +336,7 @@ if __name__ == "__main__":
     p = facesettool_parser.add_parser ("delete_relighted", help="Delete relighted faces.")
     p.add_argument('--input-dir', required=True, action=fixPathAction, dest="input_dir", help="Input directory of aligned faces.")
     p.set_defaults(func=process_delete_relighted)
+    """
 
     def bad_args(arguments):
         parser.print_help()
