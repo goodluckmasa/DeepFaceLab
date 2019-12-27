@@ -21,6 +21,9 @@ class nnlib(object):
 
     dlib = None
 
+    torch = None
+    torch_device = None
+
     keras = None
     keras_contrib = None
 
@@ -89,6 +92,8 @@ Model = keras.models.Model
 
 Adam = nnlib.Adam
 RMSprop = nnlib.RMSprop
+LookaheadOptimizer = nnlib.LookaheadOptimizer
+SGD = nnlib.keras.optimizers.SGD
 
 modelify = nnlib.modelify
 gaussian_blur = nnlib.gaussian_blur
@@ -96,6 +101,7 @@ style_loss = nnlib.style_loss
 dssim = nnlib.dssim
 MsSSIM = nnlib.MsSSIM   
 
+DenseMaxout = nnlib.DenseMaxout
 PixelShuffler = nnlib.PixelShuffler
 SubpixelUpscaler = nnlib.SubpixelUpscaler
 SubpixelDownscaler = nnlib.SubpixelDownscaler
@@ -128,6 +134,28 @@ UNet = nnlib.UNet
 UNetTemporalPredictor = nnlib.UNetTemporalPredictor
 NLayerDiscriminator = nnlib.NLayerDiscriminator
 """
+    @staticmethod
+    def import_torch(device_config=None):
+        if nnlib.torch is not None:
+            return
+
+        if device_config is None:
+            device_config = nnlib.active_DeviceConfig
+        else:
+            nnlib.active_DeviceConfig = device_config
+
+        if 'CUDA_VISIBLE_DEVICES' in os.environ.keys():
+            os.environ.pop('CUDA_VISIBLE_DEVICES')
+
+        io.log_info ("Using PyTorch backend.")
+        import torch
+        nnlib.torch = torch
+
+        if device_config.cpu_only or device_config.backend == 'plaidML':
+            nnlib.torch_device = torch.device(type='cpu')
+        else:
+            nnlib.torch_device = torch.device(type='cuda', index=device_config.gpu_idxs[0] )
+            torch.cuda.set_device(nnlib.torch_device)
 
     @staticmethod
     def _import_tf(device_config):
@@ -793,9 +821,10 @@ NLayerDiscriminator = nnlib.NLayerDiscriminator
                               2 - allows to train x3 bigger network on same VRAM consuming RAM*2 and CPU power.
             """
 
-            def __init__(self, learning_rate=0.001, rho=0.9, tf_cpu_mode=0, **kwargs):
+            def __init__(self, learning_rate=0.001, rho=0.9, lr_dropout=0, tf_cpu_mode=0, **kwargs):
                 self.initial_decay = kwargs.pop('decay', 0.0)
                 self.epsilon = kwargs.pop('epsilon', K.epsilon())
+                self.lr_dropout = lr_dropout
                 self.tf_cpu_mode = tf_cpu_mode
 
                 learning_rate = kwargs.pop('lr', learning_rate)
@@ -816,6 +845,8 @@ NLayerDiscriminator = nnlib.NLayerDiscriminator
                                 dtype=K.dtype(p),
                                 name='accumulator_' + str(i))
                                 for (i, p) in enumerate(params)]
+                if self.lr_dropout != 0:
+                    lr_rnds = [ K.random_binomial(K.int_shape(p), p=self.lr_dropout, dtype=K.dtype(p)) for p in params ]
                 if e: e.__exit__(None, None, None)
 
                 self.weights = [self.iterations] + accumulators
@@ -826,12 +857,15 @@ NLayerDiscriminator = nnlib.NLayerDiscriminator
                     lr = lr * (1. / (1. + self.decay * K.cast(self.iterations,
                                                             K.dtype(self.decay))))
 
-                for p, g, a in zip(params, grads, accumulators):
+                for i, (p, g, a) in enumerate(zip(params, grads, accumulators)):
                     # update accumulator
                     e = K.tf.device("/cpu:0") if self.tf_cpu_mode == 2 else None
                     if e: e.__enter__()
                     new_a = self.rho * a + (1. - self.rho) * K.square(g)
-                    new_p = p - lr * g / (K.sqrt(new_a) + self.epsilon)
+                    p_diff = - lr * g / (K.sqrt(new_a) + self.epsilon)
+                    if self.lr_dropout != 0:
+                        p_diff *= lr_rnds[i]
+                    new_p = p + p_diff
                     if e: e.__exit__(None, None, None)
 
                     self.updates.append(K.update(a, new_a))
@@ -856,7 +890,8 @@ NLayerDiscriminator = nnlib.NLayerDiscriminator
                 config = {'learning_rate': float(K.get_value(self.learning_rate)),
                         'rho': float(K.get_value(self.rho)),
                         'decay': float(K.get_value(self.decay)),
-                        'epsilon': self.epsilon}
+                        'epsilon': self.epsilon,
+                        'lr_dropout' : self.lr_dropout }
                 base_config = super(RMSprop, self).get_config()
                 return dict(list(base_config.items()) + list(config.items()))
         nnlib.RMSprop = RMSprop
@@ -875,6 +910,7 @@ NLayerDiscriminator = nnlib.NLayerDiscriminator
                 amsgrad: boolean. Whether to apply the AMSGrad variant of this
                     algorithm from the paper "On the Convergence of Adam and
                     Beyond".
+                lr_dropout: float [0.0 .. 1.0] Learning rate dropout https://arxiv.org/pdf/1912.00144
                 tf_cpu_mode: only for tensorflow backend
                               0 - default, no changes.
                               1 - allows to train x2 bigger network on same VRAM consuming RAM
@@ -888,7 +924,7 @@ NLayerDiscriminator = nnlib.NLayerDiscriminator
             """
 
             def __init__(self, lr=0.001, beta_1=0.9, beta_2=0.999,
-                         epsilon=None, decay=0., amsgrad=False, tf_cpu_mode=0, **kwargs):
+                         epsilon=None, decay=0., amsgrad=False, lr_dropout=0, tf_cpu_mode=0, **kwargs):
                 super(Adam, self).__init__(**kwargs)
                 with K.name_scope(self.__class__.__name__):
                     self.iterations = K.variable(0, dtype='int64', name='iterations')
@@ -901,6 +937,7 @@ NLayerDiscriminator = nnlib.NLayerDiscriminator
                 self.epsilon = epsilon
                 self.initial_decay = decay
                 self.amsgrad = amsgrad
+                self.lr_dropout = lr_dropout
                 self.tf_cpu_mode = tf_cpu_mode
 
             def get_updates(self, loss, params):
@@ -924,11 +961,16 @@ NLayerDiscriminator = nnlib.NLayerDiscriminator
                     vhats = [K.zeros(K.int_shape(p), dtype=K.dtype(p)) for p in params]
                 else:
                     vhats = [K.zeros(1) for _ in params]
+
+
+                if self.lr_dropout != 0:
+                    lr_rnds = [ K.random_binomial(K.int_shape(p), p=self.lr_dropout, dtype=K.dtype(p)) for p in params ]
+
                 if e: e.__exit__(None, None, None)
 
                 self.weights = [self.iterations] + ms + vs + vhats
 
-                for p, g, m, v, vhat in zip(params, grads, ms, vs, vhats):
+                for i, (p, g, m, v, vhat) in enumerate( zip(params, grads, ms, vs, vhats) ):
                     e = K.tf.device("/cpu:0") if self.tf_cpu_mode == 2 else None
                     if e: e.__enter__()
                     m_t = (self.beta_1 * m) + (1. - self.beta_1) * g
@@ -940,13 +982,16 @@ NLayerDiscriminator = nnlib.NLayerDiscriminator
                     if e: e.__exit__(None, None, None)
 
                     if self.amsgrad:
-                        p_t = p - lr_t * m_t / (K.sqrt(vhat_t) + self.epsilon)
+                        p_diff = - lr_t * m_t / (K.sqrt(vhat_t) + self.epsilon)
                     else:
-                        p_t = p - lr_t * m_t / (K.sqrt(v_t) + self.epsilon)
+                        p_diff = - lr_t * m_t / (K.sqrt(v_t) + self.epsilon)
+
+                    if self.lr_dropout != 0:
+                        p_diff *= lr_rnds[i]
 
                     self.updates.append(K.update(m, m_t))
                     self.updates.append(K.update(v, v_t))
-                    new_p = p_t
+                    new_p = p + p_diff
 
                     # Apply constraints.
                     if getattr(p, 'constraint', None) is not None:
@@ -961,11 +1006,217 @@ NLayerDiscriminator = nnlib.NLayerDiscriminator
                           'beta_2': float(K.get_value(self.beta_2)),
                           'decay': float(K.get_value(self.decay)),
                           'epsilon': self.epsilon,
-                          'amsgrad': self.amsgrad}
+                          'amsgrad': self.amsgrad,
+                          'lr_dropout' : self.lr_dropout}
                 base_config = super(Adam, self).get_config()
                 return dict(list(base_config.items()) + list(config.items()))
 
         nnlib.Adam = Adam
+
+        class LookaheadOptimizer(keras.optimizers.Optimizer):
+            def __init__(self, optimizer, sync_period=5, slow_step=0.5, tf_cpu_mode=0, **kwargs):
+                super(LookaheadOptimizer, self).__init__(**kwargs)
+                self.optimizer = optimizer
+                self.tf_cpu_mode = tf_cpu_mode
+
+                with K.name_scope(self.__class__.__name__):
+                    self.sync_period = K.variable(sync_period, dtype='int64', name='sync_period')
+                    self.slow_step = K.variable(slow_step, name='slow_step')
+
+            @property
+            def lr(self):
+                return self.optimizer.lr
+
+            @lr.setter
+            def lr(self, lr):
+                self.optimizer.lr = lr
+
+            @property
+            def learning_rate(self):
+                return self.optimizer.learning_rate
+
+            @learning_rate.setter
+            def learning_rate(self, learning_rate):
+                self.optimizer.learning_rate = learning_rate
+
+            @property
+            def iterations(self):
+                return self.optimizer.iterations
+
+            def get_updates(self, loss, params):
+                sync_cond = K.equal((self.iterations + 1) // self.sync_period * self.sync_period, (self.iterations + 1))
+
+                e = K.tf.device("/cpu:0") if self.tf_cpu_mode > 0 else None
+                if e: e.__enter__()
+                slow_params = [K.variable(K.get_value(p), name='sp_{}'.format(i)) for i, p in enumerate(params)]
+                if e: e.__exit__(None, None, None)
+
+
+                self.updates = self.optimizer.get_updates(loss, params)
+                slow_updates = []
+                for p, sp in zip(params, slow_params):
+
+                    e = K.tf.device("/cpu:0") if self.tf_cpu_mode == 2 else None
+                    if e: e.__enter__()
+                    sp_t = sp + self.slow_step * (p - sp)
+                    if e: e.__exit__(None, None, None)
+
+                    slow_updates.append(K.update(sp, K.switch(
+                        sync_cond,
+                        sp_t,
+                        sp,
+                    )))
+                    slow_updates.append(K.update_add(p, K.switch(
+                        sync_cond,
+                        sp_t - p,
+                        K.zeros_like(p),
+                    )))
+
+                self.updates += slow_updates
+                self.weights = self.optimizer.weights + slow_params
+                return self.updates
+
+            def get_config(self):
+                config = {
+                    'optimizer': keras.optimizers.serialize(self.optimizer),
+                    'sync_period': int(K.get_value(self.sync_period)),
+                    'slow_step': float(K.get_value(self.slow_step)),
+                }
+                base_config = super(LookaheadOptimizer, self).get_config()
+                return dict(list(base_config.items()) + list(config.items()))
+
+            @classmethod
+            def from_config(cls, config):
+                optimizer = keras.optimizers.deserialize(config.pop('optimizer'))
+                return cls(optimizer, **config)
+        nnlib.LookaheadOptimizer = LookaheadOptimizer
+
+        class DenseMaxout(keras.layers.Layer):
+            """A dense maxout layer.
+            A `MaxoutDense` layer takes the element-wise maximum of
+            `nb_feature` `Dense(input_dim, output_dim)` linear layers.
+            This allows the layer to learn a convex,
+            piecewise linear activation function over the inputs.
+            Note that this is a *linear* layer;
+            if you wish to apply activation function
+            (you shouldn't need to --they are universal function approximators),
+            an `Activation` layer must be added after.
+            # Arguments
+                output_dim: int > 0.
+                nb_feature: number of Dense layers to use internally.
+                init: name of initialization function for the weights of the layer
+                    (see [initializations](../initializations.md)),
+                    or alternatively, Theano function to use for weights
+                    initialization. This parameter is only relevant
+                    if you don't pass a `weights` argument.
+                weights: list of Numpy arrays to set as initial weights.
+                    The list should have 2 elements, of shape `(input_dim, output_dim)`
+                    and (output_dim,) for weights and biases respectively.
+                W_regularizer: instance of [WeightRegularizer](../regularizers.md)
+                    (eg. L1 or L2 regularization), applied to the main weights matrix.
+                b_regularizer: instance of [WeightRegularizer](../regularizers.md),
+                    applied to the bias.
+                activity_regularizer: instance of [ActivityRegularizer](../regularizers.md),
+                    applied to the network output.
+                W_constraint: instance of the [constraints](../constraints.md) module
+                    (eg. maxnorm, nonneg), applied to the main weights matrix.
+                b_constraint: instance of the [constraints](../constraints.md) module,
+                    applied to the bias.
+                bias: whether to include a bias
+                    (i.e. make the layer affine rather than linear).
+                input_dim: dimensionality of the input (integer). This argument
+                    (or alternatively, the keyword argument `input_shape`)
+                    is required when using this layer as the first layer in a model.
+            # Input shape
+                2D tensor with shape: `(nb_samples, input_dim)`.
+            # Output shape
+                2D tensor with shape: `(nb_samples, output_dim)`.
+            # References
+                - [Maxout Networks](http://arxiv.org/abs/1302.4389)
+            """
+
+            def __init__(self, output_dim,
+                        nb_feature=4,
+                        kernel_initializer='glorot_uniform',
+                        weights=None,
+                        W_regularizer=None,
+                        b_regularizer=None,
+                        activity_regularizer=None,
+                        W_constraint=None,
+                        b_constraint=None,
+                        bias=True,
+                        input_dim=None,
+                        **kwargs):
+                self.output_dim = output_dim
+                self.nb_feature = nb_feature
+                self.kernel_initializer = keras.initializers.get(kernel_initializer)
+
+                self.W_regularizer = keras.regularizers.get(W_regularizer)
+                self.b_regularizer = keras.regularizers.get(b_regularizer)
+                self.activity_regularizer = keras.regularizers.get(activity_regularizer)
+
+                self.W_constraint = keras.constraints.get(W_constraint)
+                self.b_constraint = keras.constraints.get(b_constraint)
+
+                self.bias = bias
+                self.initial_weights = weights
+                self.input_spec = keras.layers.InputSpec(ndim=2)
+
+                self.input_dim = input_dim
+                if self.input_dim:
+                    kwargs['input_shape'] = (self.input_dim,)
+                super(DenseMaxout, self).__init__(**kwargs)
+
+            def build(self, input_shape):
+                input_dim = input_shape[1]
+                self.input_spec = keras.layers.InputSpec(dtype=K.floatx(),
+                                            shape=(None, input_dim))
+
+                self.W = self.add_weight(shape=(self.nb_feature, input_dim, self.output_dim),
+                                        initializer=self.kernel_initializer,
+                                        name='W',
+                                        regularizer=self.W_regularizer,
+                                        constraint=self.W_constraint)
+                if self.bias:
+                    self.b = self.add_weight(shape=(self.nb_feature, self.output_dim,),
+                                            initializer='zero',
+                                            name='b',
+                                            regularizer=self.b_regularizer,
+                                            constraint=self.b_constraint)
+                else:
+                    self.b = None
+
+                if self.initial_weights is not None:
+                    self.set_weights(self.initial_weights)
+                    del self.initial_weights
+                self.built = True
+
+            def compute_output_shape(self, input_shape):
+                assert input_shape and len(input_shape) == 2
+                return (input_shape[0], self.output_dim)
+
+            def call(self, x):
+                # no activation, this layer is only linear.
+                output = K.dot(x, self.W)
+                if self.bias:
+                    output += self.b
+                output = K.max(output, axis=1)
+                return output
+
+            def get_config(self):
+                config = {'output_dim': self.output_dim,
+                        'kernel_initializer': initializers.serialize(self.kernel_initializer),
+                        'nb_feature': self.nb_feature,
+                        'W_regularizer': regularizers.serialize(self.W_regularizer),
+                        'b_regularizer': regularizers.serialize(self.b_regularizer),
+                        'activity_regularizer': regularizers.serialize(self.activity_regularizer),
+                        'W_constraint': constraints.serialize(self.W_constraint),
+                        'b_constraint': constraints.serialize(self.b_constraint),
+                        'bias': self.bias,
+                        'input_dim': self.input_dim}
+                base_config = super(DenseMaxout, self).get_config()
+                return dict(list(base_config.items()) + list(config.items()))
+        nnlib.DenseMaxout = DenseMaxout
 
         def CAInitializerMP( conv_weights_list ):
             #Convolution Aware Initialization https://arxiv.org/abs/1702.06295

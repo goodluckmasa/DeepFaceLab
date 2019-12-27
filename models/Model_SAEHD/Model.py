@@ -51,7 +51,7 @@ class SAEHDModel(ModelBase):
         else:
             self.options['archi'] = self.options.get('archi', default_archi)
 
-        default_ae_dims = 256 if 'liae' in self.options['archi'] else 512
+        default_ae_dims = 256
         default_ed_ch_dims = 21
 
         if is_first_run:
@@ -68,6 +68,9 @@ class SAEHDModel(ModelBase):
         default_bg_style_power = self.options.get('bg_style_power', 0.0)
 
         if is_first_run or ask_override:
+            default_lr_dropout = self.options.get('lr_dropout', False)
+            self.options['lr_dropout'] = io.input_bool ( f"Use learning rate dropout? (y/n, ?:help skip:{yn_str[default_lr_dropout]} ) : ", default_lr_dropout, help_message="When the face is trained enough, you can enable this option to get extra sharpness for less amount of iterations.")
+
             default_multiscale_loss = self.options.get('multiscale_loss', True)
             self.options['ms_ssim_loss'] = io.input_bool(
                 "Use multiscale loss? (y/n, ?:help skip: %s ) : " % (yn_str[default_multiscale_loss]),
@@ -100,6 +103,8 @@ class SAEHDModel(ModelBase):
             self.options['bg_style_power'] = np.clip ( io.input_number("Background style power ( 0.0 .. 100.0 ?:help skip:%.2f) : " % (default_bg_style_power), default_bg_style_power,
                                                                                help_message="Learn to transfer image around face. This can make face more like dst. Enabling this option increases the chance of model collapse."), 0.0, 100.0 )
 
+            # default_ct_mode = self.options.get('ct_mode', 'none')
+            # self.options['ct_mode'] = io.input_str (f"Color transfer mode apply to src faceset. ( none/rct/lct/mkl/idt/sot, ?:help skip:{default_ct_mode}) : ", default_ct_mode, ['none','rct','lct','mkl','idt','sot'], help_message="Change color distribution of src samples close to dst samples. Try all modes to find the best.")
             default_ct_mode = self.options.get('ct_mode', ColorTransferMode.NONE)
             if default_ct_mode not in [int(v) for v in ColorTransferMode]:
                 default_ct_mode = ColorTransferMode.NONE
@@ -123,8 +128,8 @@ class SAEHDModel(ModelBase):
                 self.options['clipgrad'] = io.input_bool (f"Enable gradient clipping? (y/n, ?:help skip:{yn_str[default_clipgrad]}) : ", default_clipgrad, help_message="Gradient clipping reduces chance of model collapse, sacrificing speed of training.")
             else:
                 self.options['clipgrad'] = False
-
         else:
+            self.options['lr_dropout'] = self.options.get('lr_dropout', False)
             self.options['ms_ssim_loss'] = self.options.get('ms_ssim_loss', True)
             self.options['absolute_loss'] = self.options.get('absolute_loss', False)
             self.options['random_warp'] = self.options.get('random_warp', True)
@@ -485,7 +490,7 @@ class SAEHDModel(ModelBase):
         target_src_masked = self.model.target_src*target_srcm
         target_dst_masked = self.model.target_dst*target_dstm
         target_src_anti_masked = self.model.target_src * (1.0 - target_srcm)
-        target_dst_anti_masked = self.model.target_dst * (1.0 - target_dstm)
+        target_dst_anti_masked = self.model.target_dst*(1.0 - target_dstm)
 
         target_src_masked_opt = target_src_masked if masked_training else self.model.target_src
         target_dst_masked_opt = target_dst_masked if masked_training else self.model.target_dst
@@ -500,17 +505,18 @@ class SAEHDModel(ModelBase):
         psd_target_dst_anti_masked = self.model.pred_src_dst*(1.0 - target_dstm)
 
         if self.is_training_mode:
-            self.src_dst_opt      = RMSprop(lr=5e-5, clipnorm=1.0 if self.options['clipgrad'] else 0.0, tf_cpu_mode=self.options['optimizer_mode']-1)
-            self.src_dst_mask_opt = RMSprop(lr=5e-5, clipnorm=1.0 if self.options['clipgrad'] else 0.0, tf_cpu_mode=self.options['optimizer_mode']-1)
-            self.D_opt            = RMSprop(lr=5e-5, clipnorm=1.0 if self.options['clipgrad'] else 0.0, tf_cpu_mode=self.options['optimizer_mode']-1)
+            lr_dropout = 0.3 if self.options['lr_dropout'] else 0.0
+            self.src_dst_opt      = RMSprop(lr=5e-5, lr_dropout=lr_dropout, clipnorm=1.0 if self.options['clipgrad'] else 0.0, tf_cpu_mode=self.options['optimizer_mode']-1)
+            self.src_dst_mask_opt = RMSprop(lr=5e-5, lr_dropout=lr_dropout, clipnorm=1.0 if self.options['clipgrad'] else 0.0, tf_cpu_mode=self.options['optimizer_mode']-1)
+            self.D_opt            = RMSprop(lr=5e-5, lr_dropout=lr_dropout, clipnorm=1.0 if self.options['clipgrad'] else 0.0, tf_cpu_mode=self.options['optimizer_mode']-1)
 
             if self.options['ms_ssim_loss']:
                 # TODO - Done
                 src_loss = K.mean(10 * MsSSIM(resolution)(target_src_masked_opt, pred_src_src_masked_opt))
                 dst_loss = K.mean(10 * MsSSIM(resolution)(target_dst_masked_opt, pred_dst_dst_masked_opt))
             else:
-                src_loss =  K.mean ( 10*dssim(kernel_size=int(resolution/11.6),max_value=1.0)( target_src_masked_opt, pred_src_src_masked_opt) )
-                src_loss += K.mean ( 10*K.square( target_src_masked_opt - pred_src_src_masked_opt ) )
+            src_loss =  K.mean ( 10*dssim(kernel_size=int(resolution/11.6),max_value=1.0)( target_src_masked_opt, pred_src_src_masked_opt) )
+            src_loss += K.mean ( 10*K.square( target_src_masked_opt - pred_src_src_masked_opt ) )
 
                 dst_loss =  K.mean( 10*dssim(kernel_size=int(resolution/11.6),max_value=1.0)(target_dst_masked_opt, pred_dst_dst_masked_opt) )
                 dst_loss += K.mean( 10*K.square( target_dst_masked_opt - pred_dst_dst_masked_opt ) )
@@ -533,7 +539,7 @@ class SAEHDModel(ModelBase):
                     # TODO
                     src_loss += style_loss(gaussian_blur_radius=resolution//16, loss_weight=face_style_power, wnd_size=0)( psd_target_dst_masked, target_dst_masked )
                 else:
-                    src_loss += style_loss(gaussian_blur_radius=resolution//16, loss_weight=face_style_power, wnd_size=0)( psd_target_dst_masked, target_dst_masked )
+                src_loss += style_loss(gaussian_blur_radius=resolution//16, loss_weight=face_style_power, wnd_size=0)( psd_target_dst_masked, target_dst_masked )
 
             bg_style_power = self.options['bg_style_power'] / 100.0
             if bg_style_power != 0:
@@ -541,8 +547,8 @@ class SAEHDModel(ModelBase):
                     # TODO - Done
                     src_loss += K.mean(10 * bg_style_power * MsSSIM(resolution)(psd_target_dst_anti_masked, target_dst_anti_masked))
                 else:
-                    src_loss += K.mean( (10*bg_style_power)*dssim(kernel_size=int(resolution/11.6),max_value=1.0)( psd_target_dst_anti_masked, target_dst_anti_masked ))
-                    src_loss += K.mean( (10*bg_style_power)*K.square( psd_target_dst_anti_masked - target_dst_anti_masked ))
+                src_loss += K.mean( (10*bg_style_power)*dssim(kernel_size=int(resolution/11.6),max_value=1.0)( psd_target_dst_anti_masked, target_dst_anti_masked ))
+                src_loss += K.mean( (10*bg_style_power)*K.square( psd_target_dst_anti_masked - target_dst_anti_masked ))
 
 
             G_loss = src_loss+dst_loss
@@ -576,8 +582,8 @@ class SAEHDModel(ModelBase):
                     src_mask_loss = K.mean(MsSSIM(resolution)(self.model.target_srcm, self.model.pred_src_srcm))
                     dst_mask_loss = K.mean(MsSSIM(resolution)(self.model.target_dstm, self.model.pred_dst_dstm))
                 else:
-                    src_mask_loss = K.mean(K.square(self.model.target_srcm-self.model.pred_src_srcm))
-                    dst_mask_loss = K.mean(K.square(self.model.target_dstm-self.model.pred_dst_dstm))
+                src_mask_loss = K.mean(K.square(self.model.target_srcm-self.model.pred_src_srcm))
+                dst_mask_loss = K.mean(K.square(self.model.target_dstm-self.model.pred_dst_dstm))
                 self.src_dst_mask_train = K.function ([self.model.warped_src, self.model.warped_dst, self.model.target_srcm, self.model.target_dstm],[src_mask_loss, dst_mask_loss], self.src_dst_mask_opt.get_updates(src_mask_loss+dst_mask_loss, self.model.src_dst_mask_trainable_weights ) )
 
             if self.options['learn_mask']:
@@ -608,26 +614,23 @@ class SAEHDModel(ModelBase):
 
             training_data_src_path = self.training_data_src_path
             training_data_dst_path = self.training_data_dst_path
-            sort_by_yaw = self.sort_by_yaw
 
             if self.pretrain and self.pretraining_data_path is not None:
                 training_data_src_path = self.pretraining_data_path
                 training_data_dst_path = self.pretraining_data_path
-                sort_by_yaw = False
 
             t_img_warped = t.IMG_WARPED_TRANSFORMED if self.options['random_warp'] else t.IMG_TRANSFORMED
 
             self.set_training_data_generators ([
-                    SampleGeneratorFace(training_data_src_path, sort_by_yaw_target_samples_path=training_data_dst_path if sort_by_yaw else None,
-                                                                random_ct_samples_path=training_data_dst_path if self.options['ct_mode'] != 0 else None,
-                                                                debug=self.is_debug(), batch_size=self.batch_size,
-                        sample_process_options=SampleProcessor.Options(random_flip=self.random_flip, scale_range=np.array([-0.05, 0.05])+self.src_scale_mod / 100.0 ),
+                    SampleGeneratorFace(training_data_src_path, random_ct_samples_path=training_data_dst_path if self.options['ct_mode'] != 0 else None,
+                                                                debug=self.is_debug(), batch_size=self.batch_size, 
+                        sample_process_options=SampleProcessor.Options(random_flip=self.random_flip, scale_range=np.array([-0.05, 0.05]) ),
                         output_sample_types = [ {'types' : (t_img_warped, face_type, t_mode_bgr), 'resolution':resolution, 'ct_mode': self.options['ct_mode'] },
                                                 {'types' : (t.IMG_TRANSFORMED, face_type, t_mode_bgr), 'resolution': resolution, 'ct_mode': self.options['ct_mode'] },
                                                 {'types' : (t.IMG_TRANSFORMED, face_type, t.MODE_M), 'resolution': resolution } ]
                                               ),
 
-                    SampleGeneratorFace(training_data_dst_path, debug=self.is_debug(), batch_size=self.batch_size,
+                    SampleGeneratorFace(training_data_dst_path, debug=self.is_debug(), batch_size=self.batch_size, 
                         sample_process_options=SampleProcessor.Options(random_flip=self.random_flip, ),
                         output_sample_types = [ {'types' : (t_img_warped, face_type, t_mode_bgr), 'resolution':resolution},
                                                 {'types' : (t.IMG_TRANSFORMED, face_type, t_mode_bgr), 'resolution': resolution},
@@ -734,7 +737,7 @@ class SAEHDModel(ModelBase):
 
         import converters
         return self.predictor_func, (self.options['resolution'], self.options['resolution'], 3), converters.ConverterConfigMasked(face_type=face_type,
-                                     default_mode = 1 if self.options['ct_mode'] != 'none' or self.options['face_style_power'] or self.options['bg_style_power'] else 4,
+                                     default_mode = 'overlay' if self.options['ct_mode'] != 'none' or self.options['face_style_power'] or self.options['bg_style_power'] else 'seamless',
                                      clip_hborder_mask_per=0.0625 if (face_type != FaceType.HALF) else 0,
                                     )
 

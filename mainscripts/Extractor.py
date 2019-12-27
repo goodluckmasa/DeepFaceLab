@@ -20,20 +20,23 @@ from joblib import Subprocessor
 from nnlib import TernausNet, nnlib
 from utils import Path_utils
 from utils.cv2_utils import *
-from utils.DFLJPG import DFLJPG
-from utils.DFLPNG import DFLPNG
+from DFLIMG import *
 
 DEBUG = False
 
 class ExtractSubprocessor(Subprocessor):
     class Data(object):
+<<<<<<< HEAD
         def __init__(self, filename=None, rects=None, landmarks = None, landmarks_accurate=True, pitch_yaw_roll=None, final_output_files = None, size = 0):
+=======
+        def __init__(self, filename=None, rects=None, landmarks = None, landmarks_accurate=True, force_output_path=None, final_output_files = None):
+>>>>>>> iperov-master
             self.filename = filename
             self.rects = rects or []
             self.rects_rotation = 0
             self.landmarks_accurate = landmarks_accurate
             self.landmarks = landmarks or []
-            self.pitch_yaw_roll = pitch_yaw_roll
+            self.force_output_path = force_output_path
             self.final_output_files = final_output_files or []
             self.faces_detected = 0
             self.image_size = size
@@ -110,8 +113,11 @@ class ExtractSubprocessor(Subprocessor):
         #override
         def process_data(self, data):
             filename_path = Path( data.filename )
-
             filename_path_str = str(filename_path)
+            
+            if self.type == 'landmarks' and len(data.rects) == 0:
+                return data            
+            
             if self.cached_image[0] == filename_path_str:
                 image = self.cached_image[1] #cached image for manual extractor
             else:
@@ -133,10 +139,7 @@ class ExtractSubprocessor(Subprocessor):
             h, w, ch = image.shape
             if h == w:
                 #extracting from already extracted jpg image?
-                if filename_path.suffix == '.png':
-                    src_dflimg = DFLPNG.load ( str(filename_path) )
-                if filename_path.suffix == '.jpg':
-                    src_dflimg = DFLJPG.load ( str(filename_path) )
+                src_dflimg = DFLIMG.load (filename_path)
 
             if 'rects' in self.type:
                 if min(w,h) < 128:
@@ -163,8 +166,7 @@ class ExtractSubprocessor(Subprocessor):
 
                 return data
 
-            elif self.type == 'landmarks':
-
+            elif self.type == 'landmarks':                    
                 if data.rects_rotation == 0:
                     rotated_image = image
                 elif data.rects_rotation == 90:
@@ -251,17 +253,31 @@ class ExtractSubprocessor(Subprocessor):
                             landmarks_bbox = LandmarksProcessor.transform_points([(0,0), (0, face_image_size-1), (face_image_size-1, face_image_size-1), (face_image_size-1,0) ], image_to_face_mat, True)
                             landmarks_area = mathlib.polygon_area(landmarks_bbox[:,0], landmarks_bbox[:,1] )
 
+<<<<<<< HEAD
                             # get rid of faces which umeyama-landmark-area > 4*detector-rect-area
                             if self.face_type not in (FaceType.HEAD, FaceType.HEAD_NO_ALIGN) and landmarks_area > 4*rect_area:
+=======
+                            if self.face_type <= FaceType.FULL_NO_ALIGN and landmarks_area > 4*rect_area: #get rid of faces which umeyama-landmark-area > 4*detector-rect-area
+>>>>>>> iperov-master
                                 continue
 
                             if self.debug_dir is not None:
                                 LandmarksProcessor.draw_rect_landmarks(debug_image, rect, image_landmarks, face_image_size, self.face_type, transparent_mask=True)
 
+<<<<<<< HEAD
                         if filename_path.suffix == '.jpg':
                             #if extracting from dflimg and jpg copy it in order not to lose quality
                             output_file = '{}_{}{}'.format(str(self.final_output_path / filename_path.stem),
                                                            str(face_idx), '.jpg')
+=======
+                        final_output_path = self.final_output_path                        
+                        if data.force_output_path is not None:
+                            final_output_path = data.force_output_path
+                        
+                        if src_dflimg is not None and filename_path.suffix == '.jpg':
+                            #if extracting from dflimg and jpg copy it in order not to lose quality
+                            output_file = str(final_output_path / filename_path.name)
+>>>>>>> iperov-master
                             if str(filename_path) != str(output_file):
                                 shutil.copy ( str(filename_path), str(output_file) )
                             cv2_imwrite(output_file, face_image, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
@@ -274,6 +290,7 @@ class ExtractSubprocessor(Subprocessor):
                                               image_to_face_mat=image_to_face_mat,
                                               pitch_yaw_roll=data.pitch_yaw_roll)
                         else:
+<<<<<<< HEAD
                             output_file = '{}_{}{}'.format(str(self.final_output_path / filename_path.stem),
                                                            str(face_idx), '.png')
                             cv2_imwrite(output_file, face_image, [int(cv2.IMWRITE_PNG_COMPRESSION), 3])
@@ -285,6 +302,19 @@ class ExtractSubprocessor(Subprocessor):
                                               image_to_face_mat=image_to_face_mat,
                                               pitch_yaw_roll=data.pitch_yaw_roll
                                               )
+=======
+                            
+                            output_file = '{}_{}{}'.format(str(final_output_path / filename_path.stem), str(face_idx), '.jpg')
+                            cv2_imwrite(output_file, face_image, [int(cv2.IMWRITE_JPEG_QUALITY), 100] )
+
+                        DFLJPG.embed_data(output_file, face_type=FaceType.toString(self.face_type),
+                                                       landmarks=face_image_landmarks.tolist(),
+                                                       source_filename=filename_path.name,
+                                                       source_rect=rect,
+                                                       source_landmarks=image_landmarks.tolist(),
+                                                       image_to_face_mat=image_to_face_mat
+                                            )
+>>>>>>> iperov-master
 
                         data.final_output_files.append (output_file)
                         face_idx += 1
@@ -321,8 +351,14 @@ class ExtractSubprocessor(Subprocessor):
         self.image_size = size
 
         self.devices = ExtractSubprocessor.get_devices_for_config(self.manual, self.type, multi_gpu, cpu_only)
-
-        no_response_time_sec = 60 if not self.manual and not DEBUG else 999999
+        
+        if self.manual or DEBUG:
+            no_response_time_sec = 999999 
+        elif nnlib.device.backend == 'plaidML':
+            no_response_time_sec = 600
+        else:
+            no_response_time_sec = 60
+            
         super().__init__('Extractor', ExtractSubprocessor.Cli, no_response_time_sec)
 
     #override
@@ -639,11 +675,15 @@ class ExtractSubprocessor(Subprocessor):
                     count = 1
 
                     if not manual:
-                        if (type == 'rects-dlib' or type == 'rects-mt' ):
+                        if (type == 'rects-mt' ):
                             count = int (max (1, dev_vram / 2) )
+<<<<<<< HEAD
                         if type == 'rects-s3fd':
                             count = int (max (1, dev_vram / 5) )
 
+=======
+                            
+>>>>>>> iperov-master
                     if count == 1:
                         result += [ (idx, 'GPU', dev_name, dev_vram) ]
                     else:
@@ -809,6 +849,7 @@ def main(input_dir,
     io.log_info ('Images found:        %d' % (images_found) )
     io.log_info ('Faces detected:      %d' % (faces_detected) )
     io.log_info ('-------------------------')
+<<<<<<< HEAD
 
 #unused in end user workflow
 def extract_fanseg(input_dir, device_args={} ):
@@ -914,3 +955,5 @@ def extract_umd_csv(input_file_csv,
     io.log_info ('Images found:        %d' % (images_found) )
     io.log_info ('Faces detected:      %d' % (faces_detected) )
     io.log_info ('-------------------------')
+=======
+>>>>>>> iperov-master

@@ -14,17 +14,16 @@ import numpy as np
 import numpy.linalg as npla
 
 import imagelib
+import samplelib
 from converters import (ConverterConfig, ConvertFaceAvatar, ConvertMasked,
                         FrameInfo)
 from facelib import FaceType, LandmarksProcessor
-from nnlib import TernausNet
-
 from interact import interact as io
 from joblib import SubprocessFunctionCaller, Subprocessor
+from nnlib import TernausNet
 from utils import Path_utils
 from utils.cv2_utils import *
-from utils.DFLJPG import DFLJPG
-from utils.DFLPNG import DFLPNG
+from DFLIMG import DFLIMG
 
 from .ConverterScreen import Screen, ScreenManager
 
@@ -101,12 +100,21 @@ class ConvertSubprocessor(Subprocessor):
                         return cv2.filter2D(img, -1, kernel)
                     elif sharpen_mode == 2: #gaussian
                         blur = cv2.GaussianBlur(img, (kernel_size, kernel_size) , 0)
-                        img = cv2.addWeighted(img, 1.0 + (0.5 * amount), blur, -(0.5 * amount), 0)  
+                        img = cv2.addWeighted(img, 1.0 + (0.5 * amount), blur, -(0.5 * amount), 0)
                         return img
                 elif amount < 0:
-                    blur = cv2.GaussianBlur(img, (kernel_size, kernel_size) , 0)
-                    img = cv2.addWeighted(img, 1.0 - a / 50.0, blur, a /50.0, 0)  
-                    return img                    
+                    n = -amount
+                    while n > 0:
+
+                        img_blur = cv2.medianBlur(img, 5)
+                        if int(n / 10) != 0:
+                            img = img_blur
+                        else:
+                            pass_power = (n % 10) / 10.0
+                            img = img*(1.0-pass_power)+img_blur*pass_power
+                        n = max(n-10,0)
+
+                    return img
                 return img
             self.blursharpen_func = blursharpen_func
 
@@ -122,7 +130,7 @@ class ConvertSubprocessor(Subprocessor):
                 return fanseg.extract(*args, **kwargs)
 
             self.fanseg_extract_func = fanseg_extract
-            
+
             self.fanchq_by_face_type = {}
             self.fanchq_input_size = 256
             def fanchq_extract(face_type, *args, **kwargs):
@@ -134,7 +142,7 @@ class ConvertSubprocessor(Subprocessor):
                 return fanchq.extract(*args, **kwargs)
 
             self.fanchq_extract_func = fanchq_extract
-            
+
             import ebsynth
             def ebs_ct(*args, **kwargs):
                 return ebsynth.color_transfer(*args, **kwargs)
@@ -241,7 +249,7 @@ class ConvertSubprocessor(Subprocessor):
 
         session_data = None
         if self.is_interactive and self.converter_session_filepath.exists():
-            
+
             if io.input_bool ("Use saved session? (y/n skip:y) : ", True):
                 try:
                     with open( str(self.converter_session_filepath), "rb") as f:
@@ -276,9 +284,18 @@ class ConvertSubprocessor(Subprocessor):
 
             if frames_equal:
                 io.log_info ('Using saved session from ' + '/'.join (self.converter_session_filepath.parts[-2:]) )
+
+                for frame in s_frames:
+                    if frame.cfg is not None:
+                        #recreate ConverterConfig class using constructor with get_config() as dict params
+                        #so if any new param will be added, old converter session will work properly
+                        frame.cfg = frame.cfg.__class__( **frame.cfg.get_config() )
+
                 self.frames = s_frames
                 self.frames_idxs = s_frames_idxs
                 self.frames_done_idxs = s_frames_done_idxs
+
+
 
                 if self.model_iter != s_model_iter:
                     #model is more trained, recompute all frames
@@ -366,8 +383,8 @@ class ConvertSubprocessor(Subprocessor):
 
             io.log_info ("Session is saved to " + '/'.join (self.converter_session_filepath.parts[-2:]) )
 
-    cfg_change_keys = ['`','1', '2', '3', '4', '5', '6', '7', '8', '9',
-                                 'q', 'a', 'w', 's', 'e', 'd', 'r', 'f', 't', 'g','y','h','u','j',
+    cfg_change_keys = ['`','1', '2', '3', '4', '5', '6', '7', '8', 
+                                 'q', 'a', 'w', 's', 'e', 'd', 'r', 'f', 'y','h','u','j','i','k','o','l','p', ';',':',#'t', 'g',
                                  'z', 'x', 'c', 'v', 'b','n'   ]
     #override
     def on_tick(self):
@@ -429,7 +446,7 @@ class ConvertSubprocessor(Subprocessor):
                             if cfg.type == ConverterConfig.TYPE_MASKED:
                                 if chr_key == '`':
                                     cfg.set_mode(0)
-                                elif key >= ord('1') and key <= ord('9'):
+                                elif key >= ord('1') and key <= ord('8'):
                                     cfg.set_mode( key - ord('0') )
                                 elif chr_key == 'q':
                                     cfg.add_hist_match_threshold(1 if not shift_pressed else 5)
@@ -447,10 +464,6 @@ class ConvertSubprocessor(Subprocessor):
                                     cfg.add_motion_blur_power(1 if not shift_pressed else 5)
                                 elif chr_key == 'f':
                                     cfg.add_motion_blur_power(-1 if not shift_pressed else -5)
-                                elif chr_key == 't':
-                                    cfg.add_color_degrade_power(1 if not shift_pressed else 5)
-                                elif chr_key == 'g':
-                                    cfg.add_color_degrade_power(-1 if not shift_pressed else -5)
                                 elif chr_key == 'y':
                                     cfg.add_blursharpen_amount(1 if not shift_pressed else 5)
                                 elif chr_key == 'h':
@@ -459,6 +472,21 @@ class ConvertSubprocessor(Subprocessor):
                                     cfg.add_output_face_scale(1 if not shift_pressed else 5)
                                 elif chr_key == 'j':
                                     cfg.add_output_face_scale(-1 if not shift_pressed else -5)
+                                elif chr_key == 'i':
+                                    cfg.add_image_denoise_power(1 if not shift_pressed else 5)
+                                elif chr_key == 'k':
+                                    cfg.add_image_denoise_power(-1 if not shift_pressed else -5)
+                                elif chr_key == 'o':
+                                    cfg.add_bicubic_degrade_power(1 if not shift_pressed else 5)
+                                elif chr_key == 'l':
+                                    cfg.add_bicubic_degrade_power(-1 if not shift_pressed else -5)
+
+                                elif chr_key == 'p':
+                                    cfg.add_color_degrade_power(1 if not shift_pressed else 5)
+                                elif chr_key == ';':
+                                    cfg.add_color_degrade_power(-1)
+                                elif chr_key == ':':
+                                    cfg.add_color_degrade_power(-5)
 
                                 elif chr_key == 'z':
                                     cfg.toggle_masked_hist_match()
@@ -626,7 +654,7 @@ def main (args, device_args):
 
         import models
         model = models.import_model( args['model_name'])(model_path, device_args=device_args, training_data_src_path=training_data_src_path)
-        converter_session_filepath = model.get_strpath_storage_for_file('converter_session.dat')        
+        converter_session_filepath = model.get_strpath_storage_for_file('converter_session.dat')
         predictor_func, predictor_input_shape, cfg = model.get_ConverterConfig()
 
         if not is_interactive:
@@ -644,24 +672,40 @@ def main (args, device_args):
                 io.log_err('Aligned directory not found. Please ensure it exists.')
                 return
 
+            packed_samples = None
+            try:
+                packed_samples = samplelib.PackedFaceset.load(aligned_path)  
+            except:
+                io.log_err(f"Error occured while loading samplelib.PackedFaceset.load {str(aligned_path)}, {traceback.format_exc()}")
+
+ 
+            if packed_samples is not None:      
+                io.log_info ("Using packed faceset.")          
+                def generator():
+                    for sample in io.progress_bar_generator( packed_samples, "Collecting alignments"):                      
+                        filepath = Path(sample.filename)                        
+                        yield DFLIMG.load(filepath, loader_func=lambda x: sample.read_raw_file()  )
+            else:
+                def generator():
+                    for filepath in io.progress_bar_generator( Path_utils.get_image_paths(aligned_path), "Collecting alignments"):
+                        filepath = Path(filepath)
+                        yield DFLIMG.load(filepath)
+                            
             alignments = {}
             multiple_faces_detected = False
-            aligned_path_image_paths = Path_utils.get_image_paths(aligned_path)
-            for filepath in io.progress_bar_generator(aligned_path_image_paths, "Collecting alignments"):
-                filepath = Path(filepath)
-
-                if filepath.suffix == '.png':
-                    dflimg = DFLPNG.load( str(filepath) )
-                elif filepath.suffix == '.jpg':
-                    dflimg = DFLJPG.load ( str(filepath) )
-                else:
-                    dflimg = None
-
+            
+            for dflimg in generator():
                 if dflimg is None:
                     io.log_err ("%s is not a dfl image file" % (filepath.name) )
                     continue
 
-                source_filename_stem = Path( dflimg.get_source_filename() ).stem
+                source_filename = dflimg.get_source_filename()
+                if source_filename is None or source_filename == "_":
+                    continue
+                
+                source_filename = Path(source_filename)
+                source_filename_stem = source_filename.stem
+                
                 if source_filename_stem not in alignments.keys():
                     alignments[ source_filename_stem ] = []
 
@@ -713,14 +757,8 @@ def main (args, device_args):
             filesdata = []
             for filepath in io.progress_bar_generator(input_path_image_paths, "Collecting info"):
                 filepath = Path(filepath)
-
-                if filepath.suffix == '.png':
-                    dflimg = DFLPNG.load( str(filepath) )
-                elif filepath.suffix == '.jpg':
-                    dflimg = DFLJPG.load ( str(filepath) )
-                else:
-                    dflimg = None
-
+                
+                dflimg = DFLIMG.load(filepath)
                 if dflimg is None:
                     io.log_err ("%s is not a dfl image file" % (filepath.name) )
                     continue

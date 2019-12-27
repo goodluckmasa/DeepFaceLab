@@ -29,12 +29,10 @@ class ModelBase(object):
                  ask_write_preview_history=True,
                  ask_target_iter=True,
                  ask_batch_size=True,
-                 ask_sort_by_yaw=True,
-                 ask_random_flip=True,
-                 ask_src_scale_mod=True):
+                 ask_random_flip=True, **kwargs):
 
         device_args['force_gpu_idx'] = device_args.get('force_gpu_idx',-1)
-        device_args['cpu_only'] = device_args.get('cpu_only',False)
+        device_args['cpu_only'] = True if debug else device_args.get('cpu_only',False)
 
         if device_args['force_gpu_idx'] == -1 and not device_args['cpu_only']:
             idxs_names_list = nnlib.device.getValidDevicesIdxsWithNamesList()
@@ -63,8 +61,6 @@ class ModelBase(object):
         self.debug = debug
         self.is_training_mode = is_training
 
-        self.paddle = Paddle.PONG
-
         self.iter = 0
         self.options = {}
         self.loss_history = []
@@ -88,7 +84,7 @@ class ModelBase(object):
         yn_str = {True:'y',False:'n'}
 
         if self.iter == 0:
-            io.log_info ("\nModel first run. Enter model options as default for each run.")
+            io.log_info ("\nModel first run.")
 
         if ask_enable_autobackup and (self.iter == 0 or ask_override):
             default_autobackup = False if self.iter == 0 else self.options.get('autobackup',False)
@@ -144,31 +140,12 @@ class ModelBase(object):
         else:
             self.options['batch_size'] = self.options.get('batch_size', 1)
 
-        if ask_sort_by_yaw:
+        if ask_random_flip:
+            default_random_flip = self.options.get('random_flip', True)
             if (self.iter == 0 or ask_override):
-                default_sort_by_yaw = self.options.get('sort_by_yaw', False)
-                self.options['sort_by_yaw'] = io.input_bool("Feed faces to network sorted by yaw? (y/n ?:help skip:%s):"
-                                                            " " % (yn_str[default_sort_by_yaw]), default_sort_by_yaw,
-                                                            help_message="NN will not learn src face directions that"
-                                                                         " don't match dst face directions. Do not use "
-                                                                         "if the dst face has hair that covers the jaw")
+                self.options['random_flip'] = io.input_bool(f"Flip faces randomly? (y/n ?:help skip:{yn_str[default_random_flip]}) : ", default_random_flip, help_message="Predicted face will look more naturally without this option, but src faceset should cover all face directions as dst faceset.")
             else:
-                self.options['sort_by_yaw'] = self.options.get('sort_by_yaw', False)
-
-
-        if self.iter == 0 or ask_override:
-                self.options['random_flip'] = io.input_bool("Flip faces randomly? (y/n ?:help skip:y) : ", True, help_message="Predicted face will look more naturally without this option, but src faceset should cover all face directions as dst faceset.")
-
-
-        if ask_src_scale_mod:
-            if self.iter == 0:
-                self.options['src_scale_mod'] = np.clip(io.input_int("Src face scale modifier %"
-                                                                     " ( -30...30, ?:help skip:0) : ", 0,
-                                                                     help_message="If src face shape is wider than"
-                                                                                  " dst, try to decrease this value to"
-                                                                                  " get a better result."), -30, 30)
-            else:
-                self.options['src_scale_mod'] = self.options.get('src_scale_mod', 0)
+                self.options['random_flip'] = self.options.get('random_flip', default_random_flip)
 
         self.autobackup = self.options.get('autobackup', False)
         if not self.autobackup and 'autobackup' in self.options:
@@ -185,10 +162,6 @@ class ModelBase(object):
         self.batch_size = self.options.get('batch_size', 1)
         self.sort_by_yaw = self.options.get('sort_by_yaw',False)
         self.random_flip = self.options.get('random_flip',True)
-
-        self.src_scale_mod = self.options.get('src_scale_mod',0)
-        if self.src_scale_mod == 0 and 'src_scale_mod' in self.options:
-            self.options.pop('src_scale_mod')
 
         self.onInitializeOptions(self.iter == 0, ask_override)
 
@@ -655,7 +628,7 @@ class ModelBase(object):
         loss_history = np.array (loss_history.copy())
 
         lh_height = 100
-        lh_img = np.ones((lh_height, w, c)) * 0.1
+        lh_img = np.ones ( (lh_height,w,c) ) * 0.1
 
         if len(loss_history) != 0:
             loss_count = len(loss_history[0])
