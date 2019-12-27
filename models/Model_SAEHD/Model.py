@@ -368,7 +368,7 @@ class SAEHDModel(ModelBase):
 
                 def inter_flow(lowest_dense_res, ae_dims):
                     def func(x):
-                        x = Dense(ae_dims)(x)
+                        x = Dense(ae_dims, trainable=(not freeze_encoder))(x)
                         x = Dense(lowest_dense_res * lowest_dense_res * ae_dims*2)(x)
                         x = Reshape((lowest_dense_res, lowest_dense_res, ae_dims*2))(x)
                         x = self.upscale(ae_dims*2)(x)
@@ -406,8 +406,8 @@ class SAEHDModel(ModelBase):
                 if freeze_encoder:
                     for l in self.encoder.layers:
                         l.trainable = False
-                    self.inter_AB.layers[0].trainable = False
-                    self.inter_B.layers[0].trainable = False
+                    # self.inter_AB.layers[0].trainable = False
+                    # self.inter_B.layers[0].trainable = False
 
                 sh = np.array(K.int_shape( self.inter_B.outputs[0] )[1:])*(1,1,2)
                 self.decoder = modelify(dec_flow(output_nc, d_ch_dims)) ( Input(sh) )
