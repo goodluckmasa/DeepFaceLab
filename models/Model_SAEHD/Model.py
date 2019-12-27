@@ -304,6 +304,22 @@ class SAEHDModel(ModelBase):
                 if learn_mask:
                     self.src_dst_mask_trainable_weights = self.encoder.trainable_weights + self.decoder_srcm.trainable_weights + self.decoder_dstm.trainable_weights
 
+                io.log_info ("Encoder summary: ")
+                io.log_info (self.encoder.summary())
+
+                io.log_info ("Src Decoder summary: ")
+                io.log_info (self.decoder_src.summary())
+
+                io.log_info ("Dst Decoder summary: ")
+                io.log_info (self.decoder_dst.summary())
+
+                if learn_mask:
+                    io.log_info ("Src Mask Decoder summary: ")
+                    io.log_info (self.decoder_srcm.summary())
+
+                    io.log_info ("Dst Mask Decoder summary: ")
+                    io.log_info (self.decoder_dstm.summary())
+
                 self.warped_src, self.warped_dst = Input(bgr_shape), Input(bgr_shape)
                 self.target_src, self.target_dst = Input(bgr_shape), Input(bgr_shape)
                 self.target_srcm, self.target_dstm = Input(mask_shape), Input(mask_shape)
