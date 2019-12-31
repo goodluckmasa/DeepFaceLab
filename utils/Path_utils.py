@@ -13,18 +13,18 @@ def scantree(path):
             yield from scantree(entry.path)  # see below for Python 2.x
         else:
             yield entry
-            
-def get_image_paths(dir_path: str, image_extensions: List[str] = IMAGE_EXTENSIONS, subdirs=False) -> List[str]:
+
+def get_image_paths(dir_path: str, image_extensions: List[str] = IMAGE_EXTENSIONS, subdirs=True) -> List[str]:
     dir_path = Path (dir_path)
 
     result = []
     if dir_path.exists():
-        
+
         if subdirs:
             gen = scantree(str(dir_path))
         else:
             gen = scandir(str(dir_path))
-        
+
         for x in list(gen):
             if any([x.name.lower().endswith(ext) for ext in image_extensions]):
                 result.append(x.path)
@@ -45,7 +45,7 @@ def get_image_unique_filestem_paths(dir_path: str, verbose_print_func: Optional[
         result_dup.add(f_stem)
 
     return sorted(result)
-    
+
 
 def get_file_paths(dir_path: str) -> List[str]:
     dir_path = Path(dir_path)
@@ -93,7 +93,7 @@ def move_all_files(src_dir_path: str, dst_dir_path: str) -> None:
     for p in paths:
         p = Path(p)
         p.rename ( Path(dst_dir_path) / p.name )
-        
+
 
 def delete_all_files(dir_path: str) -> None:
     paths = get_file_paths(dir_path)
