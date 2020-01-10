@@ -426,7 +426,7 @@ class SAEHDModel(ModelBase):
                 self.inter_AB = modelify(inter_flow(lowest_dense_res, ae_dims)) ( Input(sh) )
 
                 if freeze_encoder:
-                    for l in self.encoder.layers[:1]:
+                    for l in self.encoder.layers:
                         l.trainable = False
                     # for l in self.inter_AB.layers[:-5]:
                     #     l.trainable = False
