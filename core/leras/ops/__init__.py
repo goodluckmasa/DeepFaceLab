@@ -309,14 +309,15 @@ nn.dssim = dssim
 
 
 def ms_ssim(img1, img2, resolution, kernel_size=11, k1=0.01, k2=0.03, max_value=1.0,
-            power_factors=(0.0448, 0.2856, 0.3001, 0.2363, 0.1333)):
+            # power_factors=(0.0448, 0.2856, 0.3001, 0.2363, 0.1333)):
+            power_factors=(0.05168435625288417, 0.3294877711121366, 0.34621596677434235, 0.2726119058606368)):
 
-    # restrict mssim factors to those greater/equal to kernel size
-    power_factors = [power_factors[i] for i in range(len(power_factors)) if resolution//(2**i) >= kernel_size]
-
-    # normalize power factors if reduced because of size
-    if sum(power_factors) < 1.0:
-        power_factors = [x/sum(power_factors) for x in power_factors]
+    # # restrict mssim factors to those greater/equal to kernel size
+    # power_factors = [power_factors[i] for i in range(len(power_factors)) if resolution//(2**i) >= kernel_size]
+    #
+    # # normalize power factors if reduced because of size
+    # if sum(power_factors) < 1.0:
+    #     power_factors = [x/sum(power_factors) for x in power_factors]
 
     img_dtype = img1.dtype
     if img_dtype != img2.dtype:
