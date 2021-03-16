@@ -61,6 +61,8 @@ class SAEHDModel(ModelBase):
         default_clipgrad           = self.options['clipgrad']           = self.load_or_def_option('clipgrad', False)
         default_pretrain           = self.options['pretrain']           = self.load_or_def_option('pretrain', False)
 
+        default_freeze_encoder     = self.options['freeze_encoder']     = self.load_or_def_option('freeze_encoder', False)
+
         ask_override = self.ask_override()
         if self.is_first_run() or ask_override:
             self.ask_autobackup_hour()
@@ -171,6 +173,8 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
 
             self.options['pretrain'] = io.input_bool ("Enable pretraining mode", default_pretrain, help_message="Pretrain the model with large amount of various faces. After that, model can be used to train the fakes more quickly.")
 
+            self.options['freeze_encoder'] = io.input_bool ("Freeze encoder", default_freeze_encoder, help_message="Freeze the encoder weights (do not train).")
+
         if self.options['pretrain'] and self.get_pretraining_data_path() is None:
             raise Exception("pretraining_data_path is not defined")
 
@@ -257,7 +261,7 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
 
         with tf.device (models_opt_device):
             if 'df' in archi_type:
-                self.encoder = model_archi.Encoder(in_ch=input_ch, e_ch=e_dims, name='encoder')
+                self.encoder = model_archi.Encoder(in_ch=input_ch, e_ch=e_dims, name='encoder', trainable=not self.options['freeze_encoder'])
                 encoder_out_ch = self.encoder.get_out_ch()*self.encoder.get_out_res(resolution)**2
 
                 self.inter = model_archi.Inter (in_ch=encoder_out_ch, ae_ch=ae_dims, ae_out_ch=ae_dims, name='inter')
@@ -277,7 +281,7 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
                         self.model_filename_list += [ [self.code_discriminator, 'code_discriminator.npy'] ]
 
             elif 'liae' in archi_type:
-                self.encoder = model_archi.Encoder(in_ch=input_ch, e_ch=e_dims, name='encoder')
+                self.encoder = model_archi.Encoder(in_ch=input_ch, e_ch=e_dims, name='encoder', trainable=not self.options['freeze_encoder'])
                 encoder_out_ch = self.encoder.get_out_ch()*self.encoder.get_out_res(resolution)**2
 
                 self.inter_AB = model_archi.Inter(in_ch=encoder_out_ch, ae_ch=ae_dims, ae_out_ch=ae_dims*2, name='inter_AB')
