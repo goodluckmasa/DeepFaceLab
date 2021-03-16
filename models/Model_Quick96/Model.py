@@ -39,7 +39,7 @@ class QModel(ModelBase):
         mask_shape = nn.get4Dshape(resolution,resolution,1)
 
         self.model_filename_list = []
-        
+
         model_archi = nn.DeepFakeArchi(resolution, opts='ud')
 
         with tf.device ('/CPU:0'):
@@ -70,7 +70,7 @@ class QModel(ModelBase):
                                           [self.decoder_dst, 'decoder_dst.npy']  ]
 
             if self.is_training:
-                self.src_dst_trainable_weights = self.encoder.get_weights() + self.inter.get_weights() + self.decoder_src.get_weights() + self.decoder_dst.get_weights()
+                self.src_dst_trainable_weights = self.encoder.get_trainable_weights() + self.inter.get_trainable_weights() + self.decoder_src.get_trainable_weights() + self.decoder_dst.get_trainable_weights()
 
                 # Initialize optimizers
                 self.src_dst_opt = nn.RMSprop(lr=2e-4, lr_dropout=0.3, name='src_dst_opt')
@@ -94,7 +94,7 @@ class QModel(ModelBase):
             gpu_src_losses = []
             gpu_dst_losses = []
             gpu_src_dst_loss_gvs = []
-            
+
             for gpu_id in range(gpu_count):
                 with tf.device( f'/GPU:{gpu_id}' if len(devices) != 0 else f'/CPU:0' ):
                     batch_slice = slice( gpu_id*bs_per_gpu, (gpu_id+1)*bs_per_gpu )

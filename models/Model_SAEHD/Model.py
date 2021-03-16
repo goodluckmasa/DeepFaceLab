@@ -304,9 +304,9 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
                 clipnorm = 1.0 if self.options['clipgrad'] else 0.0
 
                 if 'df' in archi_type:
-                    self.src_dst_trainable_weights = self.encoder.get_weights() + self.inter.get_weights() + self.decoder_src.get_weights() + self.decoder_dst.get_weights()
+                    self.src_dst_trainable_weights = self.encoder.get_trainable_weights() + self.inter.get_trainable_weights() + self.decoder_src.get_trainable_weights() + self.decoder_dst.get_trainable_weights()
                 elif 'liae' in archi_type:
-                    self.src_dst_trainable_weights = self.encoder.get_weights() + self.inter_AB.get_weights() + self.inter_B.get_weights() + self.decoder.get_weights()
+                    self.src_dst_trainable_weights = self.encoder.get_trainable_weights() + self.inter_AB.get_trainable_weights() + self.inter_B.get_trainable_weights() + self.decoder.get_trainable_weights()
 
 
 
@@ -316,12 +316,12 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
 
                 if self.options['true_face_power'] != 0:
                     self.D_code_opt = OptimizerClass(lr=lr, lr_dropout=lr_dropout, clipnorm=clipnorm, name='D_code_opt')
-                    self.D_code_opt.initialize_variables ( self.code_discriminator.get_weights(), vars_on_cpu=optimizer_vars_on_cpu, lr_dropout_on_cpu=self.options['lr_dropout']=='cpu')
+                    self.D_code_opt.initialize_variables ( self.code_discriminator.get_trainable_weights(), vars_on_cpu=optimizer_vars_on_cpu, lr_dropout_on_cpu=self.options['lr_dropout']=='cpu')
                     self.model_filename_list += [ (self.D_code_opt, 'D_code_opt.npy') ]
 
                 if gan_power != 0:
                     self.D_src_dst_opt = OptimizerClass(lr=lr, lr_dropout=lr_dropout, clipnorm=clipnorm, name='GAN_opt')
-                    self.D_src_dst_opt.initialize_variables ( self.D_src.get_weights(), vars_on_cpu=optimizer_vars_on_cpu, lr_dropout_on_cpu=self.options['lr_dropout']=='cpu')#+self.D_src_x2.get_weights()
+                    self.D_src_dst_opt.initialize_variables ( self.D_src.get_trainable_weights(), vars_on_cpu=optimizer_vars_on_cpu, lr_dropout_on_cpu=self.options['lr_dropout']=='cpu')#+self.D_src_x2.get_weights()
                     self.model_filename_list += [ (self.D_src_dst_opt, 'GAN_opt.npy') ]
 
         if self.is_training:
@@ -489,7 +489,7 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
                         gpu_D_code_loss = (DLoss(gpu_src_code_d_ones , gpu_dst_code_d) + \
                                            DLoss(gpu_src_code_d_zeros, gpu_src_code_d) ) * 0.5
 
-                        gpu_D_code_loss_gvs += [ nn.gradients (gpu_D_code_loss, self.code_discriminator.get_weights() ) ]
+                        gpu_D_code_loss_gvs += [ nn.gradients (gpu_D_code_loss, self.code_discriminator.get_trainable_weights() ) ]
 
                     if gan_power != 0:
                         gpu_pred_src_src_d, \
@@ -512,7 +512,7 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
                                              (DLoss(gpu_target_src_d2_ones      , gpu_target_src_d2) + \
                                               DLoss(gpu_pred_src_src_d2_zeros   , gpu_pred_src_src_d2) ) * 0.5
 
-                        gpu_D_src_dst_loss_gvs += [ nn.gradients (gpu_D_src_dst_loss, self.D_src.get_weights() ) ]#+self.D_src_x2.get_weights()
+                        gpu_D_src_dst_loss_gvs += [ nn.gradients (gpu_D_src_dst_loss, self.D_src.get_trainable_weights() ) ]#+self.D_src_x2.get_weights()
 
                         gpu_G_loss += gan_power*(DLoss(gpu_pred_src_src_d_ones, gpu_pred_src_src_d)  + \
                                                  DLoss(gpu_pred_src_src_d2_ones, gpu_pred_src_src_d2))
