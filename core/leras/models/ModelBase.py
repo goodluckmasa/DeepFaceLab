@@ -5,8 +5,8 @@ from core.leras import nn
 tf = nn.tf
 
 class ModelBase(nn.Saveable):
-    def __init__(self, *args, name=None, **kwargs):
-        super().__init__(name=name)
+    def __init__(self, *args, name=None, trainable=True, **kwargs):
+        super().__init__(name=name, trainable=trainable)
         self.layers = []
         self.layers_by_name = {}
         self.built = False
