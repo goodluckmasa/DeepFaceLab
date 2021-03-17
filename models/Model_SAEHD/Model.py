@@ -416,12 +416,14 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
                     gpu_target_dst_style_anti_masked = gpu_target_dst*(1.0 - gpu_target_dstm_style_blur)
 
                     gpu_target_src_anti_masked = gpu_target_src*(1.0-gpu_target_srcm_blur)
+                    gpu_target_dst_anti_masked = gpu_target_dst*(1.0-gpu_target_dstm_blur)
                     gpu_target_src_masked_opt  = gpu_target_src*gpu_target_srcm_blur if masked_training else gpu_target_src
                     gpu_target_dst_masked_opt  = gpu_target_dst_masked if masked_training else gpu_target_dst
 
                     gpu_pred_src_src_masked_opt = gpu_pred_src_src*gpu_target_srcm_blur if masked_training else gpu_pred_src_src
                     gpu_pred_src_src_anti_masked = gpu_pred_src_src*(1.0-gpu_target_srcm_blur)
                     gpu_pred_dst_dst_masked_opt = gpu_pred_dst_dst*gpu_target_dstm_blur if masked_training else gpu_pred_dst_dst
+                    gpu_pred_dst_dst_anti_masked = gpu_pred_dst_dst*(1.0-gpu_target_dstm_blur)
 
                     gpu_psd_target_dst_style_masked = gpu_pred_src_dst*gpu_target_dstm_style_blur
                     gpu_psd_target_dst_style_anti_masked = gpu_pred_src_dst*(1.0 - gpu_target_dstm_style_blur)
@@ -497,14 +499,16 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
                         gpu_D_code_loss_gvs += [ nn.gradients (gpu_D_code_loss, self.code_discriminator.get_weights() ) ]
 
                     if gan_power != 0:
-                        gpu_pred_src_src_d, \
-                        gpu_pred_src_src_d2           = self.D_src(gpu_pred_src_src_masked_opt)
+                        gpu_pred_src_src_d, gpu_pred_src_src_d2 = self.D_src(gpu_pred_src_src_masked_opt)
+                        gpu_target_src_d, gpu_target_src_d2 = self.D_src(gpu_target_src_masked_opt)
+                        gpu_pred_dst_dst_d, gpu_pred_dst_dst_d2 = self.D_src(gpu_pred_dst_dst_masked_opt)
+                        gpu_target_dst_d, gpu_target_dst_d2 = self.D_src(gpu_target_dst_masked_opt)
 
                         def get_smooth_noisy_labels(label, tensor, smoothing=0.1, noise=0.05):
                             num_labels = self.batch_size
                             for d in tensor.get_shape().as_list()[1:]:
                                 num_labels *= d
-                            
+
                             probs = tf.math.log([[noise, 1-noise]]) if label == 1 else tf.math.log([[1-noise, noise]])
                             x = tf.random.categorical(probs, num_labels)
                             x = tf.cast(x, tf.float32)
@@ -516,33 +520,47 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
                         smoothing = self.options['gan_smoothing']
                         noise = self.options['gan_noise']
 
-                        gpu_pred_src_src_d_ones  = get_smooth_noisy_labels(1, gpu_pred_src_src_d, smoothing=smoothing, noise=noise)
-                        gpu_pred_src_src_d_zeros =  get_smooth_noisy_labels(0, gpu_pred_src_src_d, smoothing=smoothing, noise=noise)
+                        gpu_pred_src_src_d_ones = get_smooth_noisy_labels(1, gpu_pred_src_src_d, smoothing=smoothing, noise=noise)
+                        gpu_pred_src_src_d_zeros = get_smooth_noisy_labels(0, gpu_pred_src_src_d, smoothing=smoothing, noise=noise)
 
-                        gpu_pred_src_src_d2_ones  = get_smooth_noisy_labels(1, gpu_pred_src_src_d2, smoothing=smoothing, noise=noise)
+                        gpu_pred_src_src_d2_ones = get_smooth_noisy_labels(1, gpu_pred_src_src_d2, smoothing=smoothing, noise=noise)
                         gpu_pred_src_src_d2_zeros = get_smooth_noisy_labels(0, gpu_pred_src_src_d2, smoothing=smoothing, noise=noise)
 
-                        gpu_target_src_d, \
-                        gpu_target_src_d2            = self.D_src(gpu_target_src_masked_opt)
+                        gpu_pred_dst_dst_d_ones = get_smooth_noisy_labels(1, gpu_pred_dst_dst_d, smoothing=smoothing, noise=noise)
+                        gpu_pred_dst_dst_d_zeros = get_smooth_noisy_labels(0, gpu_pred_dst_dst_d, smoothing=smoothing, noise=noise)
 
-                        gpu_target_src_d_ones    = get_smooth_noisy_labels(1, gpu_target_src_d, smoothing=smoothing, noise=noise)
-                        gpu_target_src_d2_ones    = get_smooth_noisy_labels(1, gpu_target_src_d2, smoothing=smoothing, noise=noise)
+                        gpu_pred_dst_dst_d2_ones = get_smooth_noisy_labels(1, gpu_pred_dst_dst_d2, smoothing=smoothing, noise=noise)
+                        gpu_pred_dst_dst_d2_zeros = get_smooth_noisy_labels(0, gpu_pred_dst_dst_d2, smoothing=smoothing, noise=noise)
 
-                        gpu_D_src_dst_loss = (DLoss(gpu_target_src_d_ones      , gpu_target_src_d) + \
-                                              DLoss(gpu_pred_src_src_d_zeros   , gpu_pred_src_src_d) ) * 0.5 + \
-                                             (DLoss(gpu_target_src_d2_ones      , gpu_target_src_d2) + \
-                                              DLoss(gpu_pred_src_src_d2_zeros   , gpu_pred_src_src_d2) ) * 0.5
+                        gpu_target_src_d_ones = get_smooth_noisy_labels(1, gpu_target_src_d, smoothing=smoothing, noise=noise)
+                        gpu_target_src_d2_ones = get_smooth_noisy_labels(1, gpu_target_src_d2, smoothing=smoothing, noise=noise)
+
+                        gpu_target_dst_d_ones = get_smooth_noisy_labels(1, gpu_target_src_d, smoothing=smoothing, noise=noise)
+                        gpu_target_dst_d2_ones = get_smooth_noisy_labels(1, gpu_target_src_d2, smoothing=smoothing, noise=noise)
+
+                        gpu_D_src_dst_loss = (DLoss(gpu_target_src_d_ones, gpu_target_src_d)
+                                              + DLoss(gpu_pred_src_src_d_zeros, gpu_pred_src_src_d)
+                                              + DLoss(gpu_target_src_d2_ones, gpu_target_src_d2)
+                                              + DLoss(gpu_pred_src_src_d2_zeros, gpu_pred_src_src_d2)
+                                              + DLoss(gpu_target_dst_d_ones, gpu_target_dst_d)
+                                              + DLoss(gpu_pred_dst_dst_d_zeros, gpu_pred_dst_dst_d)
+                                              + DLoss(gpu_target_dst_d2_ones, gpu_target_dst_d2)
+                                              + DLoss(gpu_pred_dst_dst_d2_zeros, gpu_pred_dst_dst_d2)) / 8
 
                         gpu_D_src_dst_loss_gvs += [ nn.gradients (gpu_D_src_dst_loss, self.D_src.get_weights() ) ]#+self.D_src_x2.get_weights()
 
-                        gpu_G_loss += gan_power*(DLoss(gpu_pred_src_src_d_ones, gpu_pred_src_src_d)  + \
-                                                 DLoss(gpu_pred_src_src_d2_ones, gpu_pred_src_src_d2))
+                        gpu_G_loss += gan_power * (DLoss(gpu_pred_src_src_d_ones, gpu_pred_src_src_d)
+                                                   + DLoss(gpu_pred_src_src_d2_ones, gpu_pred_src_src_d2)
+                                                   + DLoss(gpu_pred_dst_dst_d_ones, gpu_pred_dst_dst_d)
+                                                   + DLoss(gpu_pred_dst_dst_d2_ones, gpu_pred_dst_dst_d2)) / 2
 
 
                         if masked_training:
                             # Minimal src-src-bg rec with total_variation_mse to suppress random bright dots from gan
                             gpu_G_loss += 0.000001*nn.total_variation_mse(gpu_pred_src_src)
+                            gpu_G_loss += 0.000001*nn.total_variation_mse(gpu_pred_dst_dst)
                             gpu_G_loss += 0.02*tf.reduce_mean(tf.square(gpu_pred_src_src_anti_masked-gpu_target_src_anti_masked),axis=[1,2,3] )
+                            gpu_G_loss += 0.02*tf.reduce_mean(tf.square(gpu_pred_dst_dst_anti_masked-gpu_target_dst_anti_masked),axis=[1,2,3] )
 
                     gpu_G_loss_gvs += [ nn.gradients ( gpu_G_loss, self.src_dst_trainable_weights ) ]
 
