@@ -497,8 +497,8 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
                         gpu_D_code_loss_gvs += [ nn.gradients (gpu_D_code_loss, self.code_discriminator.get_weights() ) ]
 
                     if gan_power != 0:
-                        gpu_pred_src_src_d, \
-                        gpu_pred_src_src_d2           = self.D_src(gpu_pred_src_src_masked_opt)
+                        gpu_pred_src_src_d, gpu_pred_src_src_d2 = self.D_src(gpu_pred_src_src_masked_opt)
+                        gpu_target_src_d, gpu_target_src_d2 = self.D_src(gpu_target_src_masked_opt)
 
                         def get_smooth_noisy_labels(label, tensor, smoothing=0.1, noise=0.05):
                             num_labels = self.batch_size
@@ -534,9 +534,6 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
 
                             gpu_target_src_d_ones    = tf.ones_like(gpu_target_src_d)
                             gpu_target_src_d2_ones    = tf.ones_like(gpu_target_src_d2)
-
-                        gpu_target_src_d, \
-                        gpu_target_src_d2            = self.D_src(gpu_target_src_masked_opt)
 
                         gpu_D_src_dst_loss = (DLoss(gpu_target_src_d_ones      , gpu_target_src_d) + \
                                               DLoss(gpu_pred_src_src_d_zeros   , gpu_pred_src_src_d) ) * 0.5 + \
