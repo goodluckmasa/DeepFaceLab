@@ -215,7 +215,7 @@ class SampleProcessor(object):
                                 source_mask = sample.get_full_face_mask()
                                 target_mask = ct_sample.get_full_face_mask()
                             img = imagelib.color_transfer (ct_mode, img, cv2.resize( ct_sample_bgr, (resolution,resolution), interpolation=cv2.INTER_LINEAR ),
-                                                           source_mask=source_mask, target_mask=target_mask )
+                                                           img_src_mask=source_mask, img_trg_mask=target_mask )
 
 
                         img  = imagelib.warp_by_params (params_per_resolution[resolution], img,  warp, transform, can_flip=True, border_replicate=border_replicate)
