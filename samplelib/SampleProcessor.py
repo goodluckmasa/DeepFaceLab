@@ -214,8 +214,10 @@ class SampleProcessor(object):
                             if ct_mode in ['rct-m', 'rct-mc', 'rct-mp', 'rct-mpc']:
                                 source_mask = sample.get_full_face_mask()
                                 target_mask = ct_sample.get_full_face_mask()
+                                source_mask = cv2.resize(source_mask, (resolution,resolution), interpolation=cv2.INTER_LINEAR)
+                                target_mask = cv2.resize(target_mask, (resolution,resolution), interpolation=cv2.INTER_LINEAR)
                             img = imagelib.color_transfer (ct_mode, img, cv2.resize( ct_sample_bgr, (resolution,resolution), interpolation=cv2.INTER_LINEAR ),
-                                                           img_src_mask=source_mask, img_trg_mask=target_mask )
+                                                           img_src_mask=source_mask, img_trg_mask=target_mask)
 
 
                         img  = imagelib.warp_by_params (params_per_resolution[resolution], img,  warp, transform, can_flip=True, border_replicate=border_replicate)
