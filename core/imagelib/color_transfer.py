@@ -398,14 +398,20 @@ def color_transfer_mix(img_src, img_trg):
     return (img_rct / 255.0).astype(np.float32)
 
 
-def color_transfer(ct_mode, img_src, img_trg):
+def color_transfer(ct_mode, img_src, img_trg, img_src_mask=None, img_trg_mask=None):
     """
     color transfer for [0,1] float32 inputs
     """
     if ct_mode == 'lct':
         out = linear_color_transfer(img_src, img_trg)
-    elif ct_mode == 'rct':
-        out = reinhard_color_transfer(img_src, img_trg)
+    elif ct_mode in ['rct', 'rct-c', 'rct-p', 'rct-pc', 'rct-m', 'rct-mc', 'rct-mp', 'rct-mpc']:
+        rct_options = list(*ct_mode.split('-')[1:])
+        clip = 'c' in rct_options
+        preserve_paper = 'p' in rct_options
+        source_mask = img_src_mask if 'm' in rct_options else None
+        target_mask = img_trg_mask if 'm' in rct_options else None
+        out = reinhard_color_transfer(img_src, img_trg, clip=clip, preserve_paper=preserve_paper,
+                                      source_mask=source_mask, target_mask=target_mask)
     elif ct_mode == 'mkl':
         out = color_transfer_mkl(img_src, img_trg)
     elif ct_mode == 'idt':

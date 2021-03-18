@@ -57,6 +57,9 @@ class SAEHDModel(ModelBase):
         default_face_style_power   = self.options['face_style_power']   = self.load_or_def_option('face_style_power', 0.0)
         default_bg_style_power     = self.options['bg_style_power']     = self.load_or_def_option('bg_style_power', 0.0)
         default_ct_mode            = self.options['ct_mode']            = self.load_or_def_option('ct_mode', 'none')
+        default_rct_masked         = self.options['rct_masked']         = self.load_or_def_option('rct_masked', False)
+        default_rct_preserve_paper = self.options['rct_preserve_paper'] = self.load_or_def_option('rct_preserve_paper', False)
+        default_rct_clip           = self.options['rct_clip']           = self.load_or_def_option('rct_clip', False)
         default_clipgrad           = self.options['clipgrad']           = self.load_or_def_option('clipgrad', False)
         default_pretrain           = self.options['pretrain']           = self.load_or_def_option('pretrain', False)
 
@@ -72,9 +75,9 @@ class SAEHDModel(ModelBase):
             resolution = io.input_int("Resolution", default_resolution, add_info="64-640", help_message="More resolution requires more VRAM and time to train. Value will be adjusted to multiple of 16 and 32 for -d archi.")
             resolution = np.clip ( (resolution // 16) * 16, min_res, max_res)
             self.options['resolution'] = resolution
-            
 
-            
+
+
             self.options['face_type'] = io.input_str ("Face type", default_face_type, ['h','mf','f','wf','head'], help_message="Half / mid face / full face / whole face / head. Half face has better resolution, but covers less area of cheeks. Mid face is 30% wider than half face. 'Whole face' covers full area of face include forehead. 'head' covers full head, but requires XSeg for src and dst faceset.").lower()
 
             while True:
@@ -135,11 +138,11 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
 
             self.options['eyes_mouth_prio'] = io.input_bool ("Eyes and mouth priority", default_eyes_mouth_prio, help_message='Helps to fix eye problems during training like "alien eyes" and wrong eyes direction. Also makes the detail of the teeth higher.')
             self.options['uniform_yaw'] = io.input_bool ("Uniform yaw distribution of samples", default_uniform_yaw, help_message='Helps to fix blurry side faces due to small amount of them in the faceset.')
-        
+
         default_gan_power          = self.options['gan_power']          = self.load_or_def_option('gan_power', 0.0)
         default_gan_patch_size     = self.options['gan_patch_size']     = self.load_or_def_option('gan_patch_size', self.options['resolution'] // 8)
         default_gan_dims           = self.options['gan_dims']           = self.load_or_def_option('gan_dims', 16)
-        
+
         if self.is_first_run() or ask_override:
             self.options['models_opt_on_gpu'] = io.input_bool ("Place models and optimizer on GPU", default_models_opt_on_gpu, help_message="When you train on one GPU, by default model and optimizer weights are placed on GPU to accelerate the process. You can place they on CPU to free up extra VRAM, thus set bigger dimensions.")
 
@@ -150,14 +153,14 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
             self.options['random_warp'] = io.input_bool ("Enable random warp of samples", default_random_warp, help_message="Random warp is required to generalize facial expressions of both faces. When the face is trained enough, you can disable it to get extra sharpness and reduce subpixel shake for less amount of iterations.")
 
             self.options['gan_power'] = np.clip ( io.input_number ("GAN power", default_gan_power, add_info="0.0 .. 1.0", help_message="Forces the neural network to learn small details of the face. Enable it only when the face is trained enough with lr_dropout(on) and random_warp(off), and don't disable. The higher the value, the higher the chances of artifacts. Typical fine value is 0.1"), 0.0, 1.0 )
-            
-            if self.options['gan_power'] != 0.0:                
+
+            if self.options['gan_power'] != 0.0:
                 gan_patch_size = np.clip ( io.input_int("GAN patch size", default_gan_patch_size, add_info="3-640", help_message="The higher patch size, the higher the quality, the more VRAM is required. You can get sharper edges even at the lowest setting. Typical fine value is resolution / 8." ), 3, 640 )
                 self.options['gan_patch_size'] = gan_patch_size
-                
+
                 gan_dims = np.clip ( io.input_int("GAN dimensions", default_gan_dims, add_info="4-64", help_message="The dimensions of the GAN network. The higher dimensions, the more VRAM is required. You can get sharper edges even at the lowest setting. Typical fine value is 16." ), 4, 64 )
                 self.options['gan_dims'] = gan_dims
-                
+
             if 'df' in self.options['archi']:
                 self.options['true_face_power'] = np.clip ( io.input_number ("'True face' power.", default_true_face_power, add_info="0.0000 .. 1.0", help_message="Experimental option. Discriminates result face to be more like src face. Higher value - stronger discrimination. Typical value is 0.01 . Comparison - https://i.imgur.com/czScS9q.png"), 0.0, 1.0 )
             else:
@@ -167,13 +170,18 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
             self.options['bg_style_power'] = np.clip ( io.input_number("Background style power", default_bg_style_power, add_info="0.0..100.0", help_message="Learn the area outside mask of the predicted face to be the same as dst. If you want to use this option with 'whole_face' you have to use XSeg trained mask. For whole_face you have to use XSeg trained mask. This can make face more like dst. Enabling this option increases the chance of model collapse. Typical value is 2.0"), 0.0, 100.0 )
 
             self.options['ct_mode'] = io.input_str (f"Color transfer for src faceset", default_ct_mode, ['none','rct','lct','mkl','idt','sot'], help_message="Change color distribution of src samples close to dst samples. Try all modes to find the best.")
+            if self.options['ct_mode'] == 'rct':
+                self.options['rct_masked'] = io.input_bool ("RCT - Use area under mask", default_rct_masked, help_message="")
+                self.options['rct_preserve_paper'] = io.input_bool ("RCT - Preserve paper", default_rct_preserve_paper, help_message="")
+                self.options['rct_clip'] = io.input_bool ("RCT - clip values after transfer", default_rct_clip, help_message="")
+
             self.options['clipgrad'] = io.input_bool ("Enable gradient clipping", default_clipgrad, help_message="Gradient clipping reduces chance of model collapse, sacrificing speed of training.")
 
             self.options['pretrain'] = io.input_bool ("Enable pretraining mode", default_pretrain, help_message="Pretrain the model with large amount of various faces. After that, model can be used to train the fakes more quickly.")
 
         if self.options['pretrain'] and self.get_pretraining_data_path() is None:
             raise Exception("pretraining_data_path is not defined")
-        
+
         self.gan_model_changed = (default_gan_patch_size != self.options['gan_patch_size']) or (default_gan_dims != self.options['gan_dims'])
 
         self.pretrain_just_disabled = (default_pretrain == True and self.options['pretrain'] == False)
@@ -195,7 +203,7 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
 
         if 'eyes_prio' in self.options:
             self.options.pop('eyes_prio')
-            
+
         eyes_mouth_prio = self.options['eyes_mouth_prio']
 
         archi_split = self.options['archi'].split('-')
@@ -230,6 +238,16 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
         ct_mode = self.options['ct_mode']
         if ct_mode == 'none':
             ct_mode = None
+        if ct_mode == 'rct':
+            rct_options = ""
+            if self.options['rct_masked']:
+                rct_options += 'm'
+            if self.options['rct_preserve_paper']:
+                rct_options += 'p'
+            if self.options['rct_clip']:
+                rct_options += 'c'
+            if rct_options != "":
+                ct_mode = f'rct-{rct_options}'
 
         models_opt_on_gpu = False if len(devices) == 0 else self.options['models_opt_on_gpu']
         models_opt_device = '/GPU:0' if models_opt_on_gpu and self.is_training else '/CPU:0'
@@ -397,7 +415,7 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
                     gpu_target_dstm_style_blur = gpu_target_dstm_blur #default style mask is 0.5 on boundary
                     gpu_target_dstm_blur = tf.clip_by_value(gpu_target_dstm_blur, 0, 0.5) * 2
 
-                    gpu_target_dst_masked           = gpu_target_dst*gpu_target_dstm_blur                    
+                    gpu_target_dst_masked           = gpu_target_dst*gpu_target_dstm_blur
                     gpu_target_dst_style_masked      = gpu_target_dst*gpu_target_dstm_style_blur
                     gpu_target_dst_style_anti_masked = gpu_target_dst*(1.0 - gpu_target_dstm_style_blur)
 
@@ -492,14 +510,14 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
 
                         gpu_G_loss += gan_power*(DLoss(gpu_pred_src_src_d_ones, gpu_pred_src_src_d)  + \
                                                  DLoss(gpu_pred_src_src_d2_ones, gpu_pred_src_src_d2))
-                                  
-                                  
-                        
+
+
+
                         if masked_training:
                             # Minimal src-src-bg rec with total_variation_mse to suppress random bright dots from gan
                             gpu_G_loss += 0.000001*nn.total_variation_mse(gpu_pred_src_src)
                             gpu_G_loss += 0.02*tf.reduce_mean(tf.square(gpu_pred_src_src_anti_masked-gpu_target_src_anti_masked),axis=[1,2,3] )
-                            
+
                     gpu_G_loss_gvs += [ nn.gradients ( gpu_G_loss, self.src_dst_trainable_weights ) ]
 
 
