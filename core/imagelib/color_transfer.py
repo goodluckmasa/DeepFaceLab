@@ -180,6 +180,12 @@ def reinhard_color_transfer(source, target, clip=False, preserve_paper=False, so
 		OpenCV image (w, h, 3) NumPy array (float32)
 	"""
 
+    # FIXME: debug
+    print('source.shape: ', source.shape)
+    print('source_mask.shape: ', source_mask.shape)
+    print('target.shape: ', target.shape)
+    print('target_mask.shape: ', target_mask.shape)
+
     # convert the images from the RGB to L*ab* color space, being
     # sure to utilizing the floating point data type (note: OpenCV
     # expects floats to be 32-bit, so use that instead of 64-bit)
@@ -276,9 +282,6 @@ def lab_image_stats(image, mask=None):
         im_mask = np.squeeze(mask) if len(np.shape(mask)) == 3 else mask
         # Filter the LAB channels on only the masked areas,
         # so our statistics are calculated on the masked region
-        # FIXME: debug
-        print('l.shape: ', l.shape)
-        print('im_mask.shape: ', im_mask.shape)
         l, a, b = l[im_mask == 1], a[im_mask == 1], b[im_mask == 1]
 
     l_mean, l_std = np.mean(l), np.std(l)
