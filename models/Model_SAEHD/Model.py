@@ -168,6 +168,11 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
             self.options['bg_style_power'] = np.clip ( io.input_number("Background style power", default_bg_style_power, add_info="0.0..100.0", help_message="Learn the area outside mask of the predicted face to be the same as dst. If you want to use this option with 'whole_face' you have to use XSeg trained mask. For whole_face you have to use XSeg trained mask. This can make face more like dst. Enabling this option increases the chance of model collapse. Typical value is 2.0"), 0.0, 100.0 )
 
             self.options['ct_mode'] = io.input_str (f"Color transfer for src faceset", default_ct_mode, ['none','rct','lct','mkl','idt','sot', 'fs-aug'], help_message="Change color distribution of src samples close to dst samples. Try all modes to find the best. FS aug adds random color to dst and src")
+            if self.options['ct_mode'] == 'rct':
+                self.options['rct_masked'] = io.input_bool ("RCT - Use area under mask", default_rct_masked, help_message="")
+                self.options['rct_preserve_paper'] = io.input_bool ("RCT - Preserve paper", default_rct_preserve_paper, help_message="")
+                self.options['rct_clip'] = io.input_bool ("RCT - clip values after transfer", default_rct_clip, help_message="")
+
             self.options['random_color'] = io.input_bool ("Random color", default_random_color, help_message="Samples are randomly rotated around the L axis in LAB colorspace, helps generalize training")
             self.options['clipgrad'] = io.input_bool ("Enable gradient clipping", default_clipgrad, help_message="Gradient clipping reduces chance of model collapse, sacrificing speed of training.")
 
@@ -231,6 +236,16 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
         ct_mode = self.options['ct_mode']
         if ct_mode == 'none':
             ct_mode = None
+        if ct_mode == 'rct':
+            rct_options = ""
+            if self.options['rct_masked']:
+                rct_options += 'm'
+            if self.options['rct_preserve_paper']:
+                rct_options += 'p'
+            if self.options['rct_clip']:
+                rct_options += 'c'
+            if rct_options != "":
+                ct_mode = f'rct-{rct_options}'
 
         models_opt_on_gpu = False if len(devices) == 0 else self.options['models_opt_on_gpu']
         models_opt_device = '/GPU:0' if models_opt_on_gpu and self.is_training else '/CPU:0'

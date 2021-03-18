@@ -31,7 +31,7 @@ class SampleProcessor(object):
 
 
     class FaceMaskType(IntEnum):
-        NONE           = 0
+        NONE          = 0
         FULL_FACE      = 1  # mask all hull as grayscale
         EYES           = 2  # mask eyes hull as grayscale
         FULL_FACE_EYES = 3  # eyes and mouse
@@ -209,9 +209,13 @@ class SampleProcessor(object):
                             if ct_mode == 'fs-aug':
                                 img = imagelib.color_augmentation(img)
                             else:
-                                if ct_sample_bgr is None:
-                                    ct_sample_bgr = ct_sample.load_bgr()
-                                img = imagelib.color_transfer (ct_mode, img, cv2.resize( ct_sample_bgr, (resolution,resolution), interpolation=cv2.INTER_LINEAR ) )
+                            if ct_sample_bgr is None:
+                               ct_sample_bgr = ct_sample.load_bgr()
+                            if ct_mode in ['rct-m', 'rct-mc', 'rct-mp', 'rct-mpc']:
+                                source_mask = sample.get_full_face_mask()
+                                target_mask = ct_sample.get_full_face_mask()
+                            img = imagelib.color_transfer (ct_mode, img, cv2.resize( ct_sample_bgr, (resolution,resolution), interpolation=cv2.INTER_LINEAR ),
+                                                           source_mask=source_mask, target_mask=target_mask )
 
 
                         img  = imagelib.warp_by_params (params_per_resolution[resolution], img,  warp, transform, can_flip=True, border_replicate=border_replicate)
