@@ -276,6 +276,9 @@ def lab_image_stats(image, mask=None):
         im_mask = np.squeeze(mask) if len(np.shape(mask)) == 3 else mask
         # Filter the LAB channels on only the masked areas,
         # so our statistics are calculated on the masked region
+        # FIXME: debug
+        print('l.shape: ', l.shape)
+        print('im_mask.shape: ', im_mask.shape)
         l, a, b = l[im_mask == 1], a[im_mask == 1], b[im_mask == 1]
 
     l_mean, l_std = np.mean(l), np.std(l)
