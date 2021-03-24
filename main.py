@@ -23,7 +23,7 @@ if __name__ == "__main__":
             setattr(namespace, self.dest, os.path.abspath(os.path.expanduser(values)))
 
     exit_code = 0
-
+    
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers()
 
@@ -52,9 +52,9 @@ if __name__ == "__main__":
     p.add_argument('--output-debug', action="store_true", dest="output_debug", default=None, help="Writes debug images to <output-dir>_debug\ directory.")
     p.add_argument('--no-output-debug', action="store_false", dest="output_debug", default=None, help="Don't writes debug images to <output-dir>_debug\ directory.")
     p.add_argument('--face-type', dest="face_type", choices=['half_face', 'full_face', 'whole_face', 'head', 'mark_only'], default=None)
-    p.add_argument('--max-faces-from-image', type=int, dest="max_faces_from_image", default=None, help="Max faces from image.")
+    p.add_argument('--max-faces-from-image', type=int, dest="max_faces_from_image", default=None, help="Max faces from image.")    
     p.add_argument('--image-size', type=int, dest="image_size", default=None, help="Output image size.")
-    p.add_argument('--jpeg-quality', type=int, dest="jpeg_quality", default=None, help="Jpeg quality.")
+    p.add_argument('--jpeg-quality', type=int, dest="jpeg_quality", default=None, help="Jpeg quality.")    
     p.add_argument('--manual-fix', action="store_true", dest="manual_fix", default=False, help="Enables manual extract only frames where faces were not recognized.")
     p.add_argument('--manual-output-debug-fix', action="store_true", dest="manual_output_debug_fix", default=False, help="Performs manual reextract input-dir frames which were deleted from [output_dir]_debug\ dir.")
     p.add_argument('--manual-window-size', type=int, dest="manual_window_size", default=1368, help="Manual fix window size. Default: 1368.")
@@ -128,6 +128,8 @@ if __name__ == "__main__":
                   'execute_programs'         : [ [int(x[0]), x[1] ] for x in arguments.execute_program ],
                   'debug'                    : arguments.debug,
                   'flask_preview'            : arguments.flask_preview,
+                  'tensorboard_dir'          : arguments.tensorboard_dir,
+                  'start_tensorboard'        : arguments.start_tensorboard
                   }
         from mainscripts import Trainer
         Trainer.main(**kwargs)
@@ -147,7 +149,10 @@ if __name__ == "__main__":
     p.add_argument('--silent-start', action="store_true", dest="silent_start", default=False, help="Silent start. Automatically chooses Best GPU and last used model.")
     p.add_argument('--flask-preview', action="store_true", dest="flask_preview", default=False,
                    help="Launches a flask server to view the previews in a web browser")
-
+    p.add_argument('--tensorboard-logdir', action=fixPathAction, dest="tensorboard_dir", help="Directory of the tensorboard output files")
+    p.add_argument('--start-tensorboard', action="store_true", dest="start_tensorboard", default=False, help="Automatically start the tensorboard server preconfigured to the tensorboard-logdir")
+    
+    
     p.add_argument('--execute-program', dest="execute_program", default=[], action='append', nargs='+')
     p.set_defaults (func=process_train)
 
@@ -254,7 +259,7 @@ if __name__ == "__main__":
     p.add_argument('--force-gpu-idxs', dest="force_gpu_idxs", default=None, help="Force to choose GPU indexes separated by comma.")
 
     p.set_defaults(func=process_faceset_enhancer)
-
+    
     def process_dev_test(arguments):
         osex.set_process_lowest_prio()
         from mainscripts import dev_misc
@@ -263,10 +268,10 @@ if __name__ == "__main__":
     p = subparsers.add_parser( "dev_test", help="")
     p.add_argument('--input-dir', required=True, action=fixPathAction, dest="input_dir")
     p.set_defaults (func=process_dev_test)
-
+    
     # ========== XSeg
     xseg_parser = subparsers.add_parser( "xseg", help="XSeg tools.").add_subparsers()
-
+    
     p = xseg_parser.add_parser( "editor", help="XSeg editor.")
 
     def process_xsegeditor(arguments):
@@ -274,11 +279,11 @@ if __name__ == "__main__":
         from XSegEditor import XSegEditor
         global exit_code
         exit_code = XSegEditor.start (Path(arguments.input_dir))
-
+        
     p.add_argument('--input-dir', required=True, action=fixPathAction, dest="input_dir")
 
     p.set_defaults (func=process_xsegeditor)
-
+  
     p = xseg_parser.add_parser( "apply", help="Apply trained XSeg model to the extracted faces.")
 
     def process_xsegapply(arguments):
@@ -288,8 +293,8 @@ if __name__ == "__main__":
     p.add_argument('--input-dir', required=True, action=fixPathAction, dest="input_dir")
     p.add_argument('--model-dir', required=True, action=fixPathAction, dest="model_dir")
     p.set_defaults (func=process_xsegapply)
-
-
+    
+    
     p = xseg_parser.add_parser( "remove", help="Remove applied XSeg masks from the extracted faces.")
     def process_xsegremove(arguments):
         osex.set_process_lowest_prio()
@@ -297,8 +302,8 @@ if __name__ == "__main__":
         XSegUtil.remove_xseg (Path(arguments.input_dir) )
     p.add_argument('--input-dir', required=True, action=fixPathAction, dest="input_dir")
     p.set_defaults (func=process_xsegremove)
-
-
+    
+    
     p = xseg_parser.add_parser( "remove_labels", help="Remove XSeg labels from the extracted faces.")
     def process_xsegremovelabels(arguments):
         osex.set_process_lowest_prio()
@@ -306,8 +311,8 @@ if __name__ == "__main__":
         XSegUtil.remove_xseg_labels (Path(arguments.input_dir) )
     p.add_argument('--input-dir', required=True, action=fixPathAction, dest="input_dir")
     p.set_defaults (func=process_xsegremovelabels)
-
-
+    
+    
     p = xseg_parser.add_parser( "fetch", help="Copies faces containing XSeg polygons in <input_dir>_xseg dir.")
 
     def process_xsegfetch(arguments):
@@ -316,7 +321,7 @@ if __name__ == "__main__":
         XSegUtil.fetch_xseg (Path(arguments.input_dir) )
     p.add_argument('--input-dir', required=True, action=fixPathAction, dest="input_dir")
     p.set_defaults (func=process_xsegfetch)
-
+    
     def bad_args(arguments):
         parser.print_help()
         exit(0)
@@ -327,9 +332,9 @@ if __name__ == "__main__":
 
     if exit_code == 0:
         print ("Done.")
-
+        
     exit(exit_code)
-
+    
 '''
 import code
 code.interact(local=dict(globals(), **locals()))
