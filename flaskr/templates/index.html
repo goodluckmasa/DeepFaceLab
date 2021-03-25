@@ -32,12 +32,13 @@
           const url = `{{ url_for('preview_image') }}?q=${iter}&format=${format}`;
           if (format === 'png') {
             $('img#preview_full_res').attr("src", url).off().on('load', function () {
-              $('img#preview_full_res').show()
-            })
+              $('img#preview_full_res').show();
+            });
           }
           if (format === 'jpg') {
             $('img#preview_low_res').attr("src", url).on('load', function () {
-              $('img#preview_full_res').hide()
+              $('img#preview_full_res').hide();
+            });
           }
         });
 
