@@ -323,7 +323,6 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
 
             gpu_src_losses = []
             gpu_G_loss_gvs = []
-            gpu_D_code_loss_gvs = []
             gpu_D_src_dst_loss_gvs = []
             for gpu_id in range(gpu_count):
                 with tf.device( f'/GPU:{gpu_id}' if len(devices) != 0 else f'/CPU:0' ):
