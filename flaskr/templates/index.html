@@ -16,7 +16,11 @@
         const socket = io.connect();
         socket.on('preview', function(msg) {
           console.log(msg);
-          $('img#preview').attr("src", "{{ url_for('preview_image') }}?q=" + new Date().getTime());
+          let url = "{{ url_for('preview_image') }}?q=" + new Date().getTime();
+          if (msg.format === 'png') {
+            url += '&format=png';
+          }
+          $('img#preview').attr("src", url);
         });
 
         socket.on('loss', function(loss_string) {
