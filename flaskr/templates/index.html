@@ -113,8 +113,8 @@
     <button class='mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect' id='zoom_next'>Zoom +</button>
 </div>
 <div class="preview-container">
-    <img id='preview_low_res' src="{{ url_for('preview_image') + '&format=jpeg'}}" style="max-width: 100%">
-    <img id='preview_full_res' src="{{ url_for('preview_image') + '&format=png'}}" style="max-width: 100%" class="overlay">
+    <img id='preview_low_res' src="{{ url_for('preview_image') + '?format=jpeg'}}" style="max-width: 100%">
+    <img id='preview_full_res' src="{{ url_for('preview_image') + '?format=png'}}" style="max-width: 100%" class="overlay">
 </div>
 </body>
 </html>
