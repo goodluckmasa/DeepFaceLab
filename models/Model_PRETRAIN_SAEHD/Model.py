@@ -509,6 +509,8 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
 
         # Loading/initializing all models/optimizers weights
         for model, filename in io.progress_bar_generator(self.model_filename_list, "Initializing models"):
+            if filename in ['decoder_dst.npy', 'inter_B.npy']:
+                continue
             do_init = self.is_first_run()
             if self.is_training and gan_power != 0 and model == self.D_src:
                 if self.gan_model_changed:
