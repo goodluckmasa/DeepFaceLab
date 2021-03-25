@@ -10,14 +10,14 @@ def create_flask_app(s2c, c2s, s2flask, kwargs):
     log = logging.getLogger('werkzeug')
     log.disabled = True
     model_path = Path(kwargs.get('saved_models_path', ''))
-    filename = 'preview.png'
-    preview_file = str(model_path / filename)
+    preview_file_png = str(model_path / 'preview.png')
+    preview_file_jpeg = str(model_path / 'preview.jpeg')
 
     def gen():
-        frame = open(preview_file, 'rb').read()
+        frame = open(preview_file_png, 'rb').read()
         while True:
             try:
-                frame = open(preview_file, 'rb').read()
+                frame = open(preview_file_png, 'rb').read()
             except:
                 pass
             yield b'--frame\r\nContent-Type: image/png\r\n\r\n'
@@ -81,7 +81,10 @@ def create_flask_app(s2c, c2s, s2flask, kwargs):
 
     @app.route('/preview_image')
     def preview_image():
-        return send_file(preview_file, mimetype='image/png', cache_timeout=-1)
+        img_format = request.args.get('format')
+        if img_format == 'png':
+            return send_file(preview_file_png, mimetype='image/png', cache_timeout=-1)
+        return send_file(preview_file_jpeg, mimetype='image/jpeg', cache_timeout=-1)
 
     socketio = SocketIO(app)
 

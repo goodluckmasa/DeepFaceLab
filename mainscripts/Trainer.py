@@ -404,11 +404,13 @@ def main(**kwargs):
                                                                zoom)
                 # io.show_image(wnd_name, preview_pane_image)
                 model_path = Path(kwargs.get('saved_models_path', ''))
-                filename = 'preview.png'
-                preview_file = str(model_path / filename)
-                cv2.imwrite(preview_file, preview_pane_image)
+                preview_file_jpeg = str(model_path / 'preview.jpeg')
+                cv2.imwrite(preview_file_jpeg, preview_pane_image)
+                socketio.emit('preview', {'format': 'jpeg', 'iter': iteration, 'loss': loss_history[-1]})
+                preview_file_png = str(model_path / 'preview.png')
+                cv2.imwrite(preview_file_png, preview_pane_image)
+                socketio.emit('preview', {'format': 'png', 'iter': iteration, 'loss': loss_history[-1]})
                 s2flask.put({'op': 'show'})
-                socketio.emit('preview', {'iter': iteration, 'loss': loss_history[-1]})
             try:
                 io.process_messages(0.01)
             except KeyboardInterrupt:
