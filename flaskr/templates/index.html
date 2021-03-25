@@ -11,6 +11,17 @@
     <title>Training Preview</title>
     <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+      .preview-container {
+        position: relative;
+        display: inline;
+      }
+      .overlay {
+        position: absolute;
+        left: 0;
+        top: 0;
+      }
+    </style>
     <script type="text/javascript">
       $(function() {
         const socket = io.connect();
@@ -18,8 +29,16 @@
           console.log(msg);
           const format = msg.format;
           const iter = msg.iter;
-          let url = `{{ url_for('preview_image') }}?q=${iter}&format=${format}`;
-          $('img#preview').attr("src", url);
+          const url = `{{ url_for('preview_image') }}?q=${iter}&format=${format}`;
+          if (format === 'png') {
+            $('img#preview_full_res').attr("src", url).off().on('load', function () {
+              $('img#preview_full_res').show()
+            })
+          }
+          if (format === 'jpg') {
+            $('img#preview_low_res').attr("src", url).on('load', function () {
+              $('img#preview_full_res').hide()
+          }
         });
 
         socket.on('loss', function(loss_string) {
@@ -93,6 +112,9 @@
     <button class='mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect' id='zoom_prev'>Zoom -</button>
     <button class='mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect' id='zoom_next'>Zoom +</button>
 </div>
-<img id='preview' src="{{ url_for('preview_image') }}" style="max-width: 100%">
+<div class="preview-container">
+    <img id='preview_low_res' src="{{ url_for('preview_image') + '&format=jpeg'}}" style="max-width: 100%">
+    <img id='preview_full_res' src="{{ url_for('preview_image') + '&format=png'}}" style="max-width: 100%" class="overlay">
+</div>
 </body>
 </html>
