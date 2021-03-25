@@ -214,8 +214,8 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
 
         adabelief = self.options['adabelief']
 
-        self.gan_power = gan_power = 0.0 if self.pretrain else self.options['gan_power']
-        random_warp = False if self.pretrain else self.options['random_warp']
+        self.gan_power = self.options['gan_power']
+        random_warp = self.options['random_warp']
 
         masked_training = self.options['masked_training']
         ct_mode = self.options['ct_mode']
@@ -285,7 +285,7 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
 
                 # Initialize optimizers
                 lr=5e-5
-                lr_dropout = 0.3 if self.options['lr_dropout'] in ['y','cpu'] and not self.pretrain else 1.0
+                lr_dropout = 0.3 if self.options['lr_dropout'] in ['y','cpu'] else 1.0
                 OptimizerClass = nn.AdaBelief if adabelief else nn.RMSprop
                 clipnorm = 1.0 if self.options['clipgrad'] else 0.0
 
@@ -545,7 +545,7 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
                                                 {'sample_type': SampleProcessor.SampleType.FACE_MASK, 'warp':False                      , 'transform':True, 'channel_type' : SampleProcessor.ChannelType.G,   'face_mask_type' : SampleProcessor.FaceMaskType.FULL_FACE, 'face_type':self.face_type, 'data_format':nn.data_format, 'resolution': resolution},
                                                 {'sample_type': SampleProcessor.SampleType.FACE_MASK, 'warp':False                      , 'transform':True, 'channel_type' : SampleProcessor.ChannelType.G,   'face_mask_type' : SampleProcessor.FaceMaskType.FULL_FACE_EYES, 'face_type':self.face_type, 'data_format':nn.data_format, 'resolution': resolution},
                                               ],
-                        uniform_yaw_distribution=self.options['uniform_yaw'] or self.pretrain,
+                        uniform_yaw_distribution=self.options['uniform_yaw'],
                         generators_count=src_generators_count ),
                              ])
 
