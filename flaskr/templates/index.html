@@ -19,6 +19,8 @@
           let url = "{{ url_for('preview_image') }}?q=" + new Date().getTime();
           if (msg.format === 'png') {
             url += '&format=png';
+          } else {
+            url += '&format=jpeg';
           }
           $('img#preview').attr("src", url);
         });
