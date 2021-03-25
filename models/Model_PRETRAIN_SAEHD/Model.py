@@ -214,7 +214,7 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
 
         adabelief = self.options['adabelief']
 
-        self.gan_power = self.options['gan_power']
+        gan_power = self.gan_power = self.options['gan_power']
         random_warp = self.options['random_warp']
 
         masked_training = self.options['masked_training']
