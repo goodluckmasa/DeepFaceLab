@@ -16,12 +16,9 @@
         const socket = io.connect();
         socket.on('preview', function(msg) {
           console.log(msg);
-          let url = "{{ url_for('preview_image') }}?q=" + new Date().getTime();
-          if (msg.format === 'png') {
-            url += '&format=png';
-          } else {
-            url += '&format=jpeg';
-          }
+          const format = msg.format;
+          const iter = msg.iter;
+          let url = `{{ url_for('preview_image') }}?q=${iter}&format=${format}`;
           $('img#preview').attr("src", url);
         });
 
