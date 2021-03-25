@@ -452,6 +452,8 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
                             gpu_G_loss += 0.000001*nn.total_variation_mse(gpu_pred_src_src)
                             gpu_G_loss += 0.02*tf.reduce_mean(tf.square(gpu_pred_src_src_anti_masked-gpu_target_src_anti_masked),axis=[1,2,3] )
 
+                    print('gpu_G_loss', gpu_G_loss)
+                    print('self.src_dst_trainable_weights', self.src_dst_trainable_weights)
                     gpu_G_loss_gvs += [ nn.gradients ( gpu_G_loss, self.src_dst_trainable_weights ) ]
 
 
