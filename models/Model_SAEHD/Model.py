@@ -64,6 +64,7 @@ class SAEHDModel(ModelBase):
         default_random_color       = self.options['random_color']       = self.load_or_def_option('random_color', False)
         default_clipgrad           = self.options['clipgrad']           = self.load_or_def_option('clipgrad', False)
         default_pretrain           = self.options['pretrain']           = self.load_or_def_option('pretrain', False)
+        default_pretrain_v2        = self.options['pretrain-v2']        = self.load_or_def_option('pretrain-v2', False)
 
         ask_override = self.ask_override()
         if self.is_first_run() or ask_override:
@@ -191,6 +192,7 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
             self.options['clipgrad'] = io.input_bool ("Enable gradient clipping", default_clipgrad, help_message="Gradient clipping reduces chance of model collapse, sacrificing speed of training.")
 
             self.options['pretrain'] = io.input_bool ("Enable pretraining mode", default_pretrain, help_message="Pretrain the model with large amount of various faces. After that, model can be used to train the fakes more quickly.")
+            self.options['pretrain-v2'] = io.input_bool ("Enable pretraining mode", default_pretrain_v2, help_message="Only trains one the src path of the model, uses less memory")
 
         if self.options['pretrain'] and self.get_pretraining_data_path() is None:
             raise Exception("pretraining_data_path is not defined")
@@ -285,7 +287,10 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
                 inter_out_ch = self.inter.get_out_ch()
 
                 self.decoder_src = model_archi.Decoder(in_ch=inter_out_ch, d_ch=d_dims, d_mask_ch=d_mask_dims, name='decoder_src')
-                self.decoder_dst = model_archi.Decoder(in_ch=inter_out_ch, d_ch=d_dims, d_mask_ch=d_mask_dims, name='decoder_dst')
+                if self.options['pretrain-v2']:
+                    self.decoder_dst = self.decoder_src
+                else:
+                    self.decoder_dst = model_archi.Decoder(in_ch=inter_out_ch, d_ch=d_dims, d_mask_ch=d_mask_dims, name='decoder_dst')
 
                 self.model_filename_list += [ [self.encoder,     'encoder.npy'    ],
                                               [self.inter,       'inter.npy'      ],
@@ -302,7 +307,10 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
                 encoder_out_ch = self.encoder.get_out_ch()*self.encoder.get_out_res(resolution)**2
 
                 self.inter_AB = model_archi.Inter(in_ch=encoder_out_ch, ae_ch=ae_dims, ae_out_ch=ae_dims*2, name='inter_AB')
-                self.inter_B  = model_archi.Inter(in_ch=encoder_out_ch, ae_ch=ae_dims, ae_out_ch=ae_dims*2, name='inter_B')
+                if self.options['pretrain-v2']:
+                    self.inter_B = self.inter_AB
+                else:
+                    self.inter_B  = model_archi.Inter(in_ch=encoder_out_ch, ae_ch=ae_dims, ae_out_ch=ae_dims*2, name='inter_B')
 
                 inter_out_ch = self.inter_AB.get_out_ch()
                 inters_out_ch = inter_out_ch*2
@@ -762,6 +770,13 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
     #override
     def onSave(self):
         for model, filename in io.progress_bar_generator(self.get_model_filename_list(), "Saving", leave=False):
+            if self.options['pretrain-v2']:
+                if filename == 'inter_AB.npy':
+                    model.save_weights ( self.get_strpath_storage_for_file('inter_B.npy') )
+                if filename == 'decoder_src.npy':
+                    model.save_weights ( self.get_strpath_storage_for_file('decoder_dst.npy') )
+                if filename in ['inter_B.npy', 'decoder_dst.npy']:
+                    continue
             model.save_weights ( self.get_strpath_storage_for_file(filename) )
 
     #override
