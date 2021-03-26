@@ -66,6 +66,10 @@ class SAEHDModel(ModelBase):
         default_clipgrad           = self.options['clipgrad']           = self.load_or_def_option('clipgrad', False)
         default_pretrain           = self.options['pretrain']           = self.load_or_def_option('pretrain', False)
 
+        default_freeze_encoder     = self.options['freeze_encoder']     = self.load_or_def_option('freeze_encoder', False)
+        default_freeze_inter       = self.options['freeze_inter']       = self.load_or_def_option('freeze_inter', False)
+        default_freeze_decoder     = self.options['freeze_decoder']     = self.load_or_def_option('freeze_decoder', False)
+
         ask_override = self.ask_override()
         if self.is_first_run() or ask_override:
             self.ask_autobackup_hour()
@@ -194,6 +198,10 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
 
             self.options['pretrain'] = io.input_bool ("Enable pretraining mode", default_pretrain, help_message="Pretrain the model with large amount of various faces. After that, model can be used to train the fakes more quickly.")
 
+            self.options['freeze_encoder'] = io.input_bool ("Freeze encoder", default_freeze_encoder, help_message="Freeze the encoder weights (do not train).")
+            self.options['freeze_inter'] = io.input_bool ("Freeze inter", default_freeze_inter, help_message="Freeze the inter weights (do not train).")
+            self.options['freeze_decoder'] = io.input_bool ("Freeze decoder", default_freeze_decoder, help_message="Freeze the decoder weights (do not train).")
+
         if self.options['pretrain'] and self.get_pretraining_data_path() is None:
             raise Exception("pretraining_data_path is not defined")
 
@@ -277,17 +285,20 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
 
         # Initializing model classes
         model_archi = nn.DeepFakeArchi(resolution, opts=archi_opts)
+        encoder_trainable = not self.options['freeze_encoder']
+        inter_trainable = not self.options['freeze_inter']
+        decoder_trainable = not self.options['freeze_decoder']
 
         with tf.device (models_opt_device):
             if 'df' in archi_type:
-                self.encoder = model_archi.Encoder(in_ch=input_ch, e_ch=e_dims, name='encoder')
+                self.encoder = model_archi.Encoder(in_ch=input_ch, e_ch=e_dims, name='encoder', trainable=encoder_trainable)
                 encoder_out_ch = self.encoder.get_out_ch()*self.encoder.get_out_res(resolution)**2
 
-                self.inter = model_archi.Inter (in_ch=encoder_out_ch, ae_ch=ae_dims, ae_out_ch=ae_dims, name='inter')
+                self.inter = model_archi.Inter (in_ch=encoder_out_ch, ae_ch=ae_dims, ae_out_ch=ae_dims, name='inter', trainable=inter_trainable)
                 inter_out_ch = self.inter.get_out_ch()
 
-                self.decoder_src = model_archi.Decoder(in_ch=inter_out_ch, d_ch=d_dims, d_mask_ch=d_mask_dims, name='decoder_src')
-                self.decoder_dst = model_archi.Decoder(in_ch=inter_out_ch, d_ch=d_dims, d_mask_ch=d_mask_dims, name='decoder_dst')
+                self.decoder_src = model_archi.Decoder(in_ch=inter_out_ch, d_ch=d_dims, d_mask_ch=d_mask_dims, name='decoder_src', trainable=decoder_trainable)
+                self.decoder_dst = model_archi.Decoder(in_ch=inter_out_ch, d_ch=d_dims, d_mask_ch=d_mask_dims, name='decoder_dst', trainable=decoder_trainable)
 
                 self.model_filename_list += [ [self.encoder,     'encoder.npy'    ],
                                               [self.inter,       'inter.npy'      ],
@@ -300,15 +311,15 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
                         self.model_filename_list += [ [self.code_discriminator, 'code_discriminator.npy'] ]
 
             elif 'liae' in archi_type:
-                self.encoder = model_archi.Encoder(in_ch=input_ch, e_ch=e_dims, name='encoder')
+                self.encoder = model_archi.Encoder(in_ch=input_ch, e_ch=e_dims, name='encoder', trainable=encoder_trainable)
                 encoder_out_ch = self.encoder.get_out_ch()*self.encoder.get_out_res(resolution)**2
 
-                self.inter_AB = model_archi.Inter(in_ch=encoder_out_ch, ae_ch=ae_dims, ae_out_ch=ae_dims*2, name='inter_AB')
-                self.inter_B  = model_archi.Inter(in_ch=encoder_out_ch, ae_ch=ae_dims, ae_out_ch=ae_dims*2, name='inter_B')
+                self.inter_AB = model_archi.Inter(in_ch=encoder_out_ch, ae_ch=ae_dims, ae_out_ch=ae_dims*2, name='inter_AB', trainable=inter_trainable)
+                self.inter_B  = model_archi.Inter(in_ch=encoder_out_ch, ae_ch=ae_dims, ae_out_ch=ae_dims*2, name='inter_B', trainable=inter_trainable)
 
                 inter_out_ch = self.inter_AB.get_out_ch()
                 inters_out_ch = inter_out_ch*2
-                self.decoder = model_archi.Decoder(in_ch=inters_out_ch, d_ch=d_dims, d_mask_ch=d_mask_dims, name='decoder')
+                self.decoder = model_archi.Decoder(in_ch=inters_out_ch, d_ch=d_dims, d_mask_ch=d_mask_dims, name='decoder', trainable=decoder_trainable)
 
                 self.model_filename_list += [ [self.encoder,  'encoder.npy'],
                                               [self.inter_AB, 'inter_AB.npy'],
@@ -331,9 +342,9 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
                 clipnorm = 1.0 if self.options['clipgrad'] else 0.0
 
                 if 'df' in archi_type:
-                    self.src_dst_trainable_weights = self.encoder.get_weights() + self.inter.get_weights() + self.decoder_src.get_weights() + self.decoder_dst.get_weights()
+                    self.src_dst_trainable_weights = self.encoder.get_trainable_weights() + self.inter.get_trainable_weights() + self.decoder_src.get_trainable_weights() + self.decoder_dst.get_trainable_weights()
                 elif 'liae' in archi_type:
-                    self.src_dst_trainable_weights = self.encoder.get_weights() + self.inter_AB.get_weights() + self.inter_B.get_weights() + self.decoder.get_weights()
+                    self.src_dst_trainable_weights = self.encoder.get_trainable_weights() + self.inter_AB.get_trainable_weights() + self.inter_B.get_trainable_weights() + self.decoder.get_trainable_weights()
 
 
 
@@ -343,17 +354,17 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
 
                 if self.options['true_face_power'] != 0:
                     self.D_code_opt = OptimizerClass(lr=lr, lr_dropout=lr_dropout, clipnorm=clipnorm, name='D_code_opt')
-                    self.D_code_opt.initialize_variables ( self.code_discriminator.get_weights(), vars_on_cpu=optimizer_vars_on_cpu, lr_dropout_on_cpu=self.options['lr_dropout']=='cpu')
+                    self.D_code_opt.initialize_variables ( self.code_discriminator.get_trainable_weights(), vars_on_cpu=optimizer_vars_on_cpu, lr_dropout_on_cpu=self.options['lr_dropout']=='cpu')
                     self.model_filename_list += [ (self.D_code_opt, 'D_code_opt.npy') ]
 
                 if gan_power != 0:
                     if self.options['gan_version'] == 2:
                         self.D_src_dst_opt = OptimizerClass(lr=lr, lr_dropout=lr_dropout, clipnorm=clipnorm, name='D_src_dst_opt')
-                        self.D_src_dst_opt.initialize_variables ( self.D_src.get_weights(), vars_on_cpu=optimizer_vars_on_cpu, lr_dropout_on_cpu=self.options['lr_dropout']=='cpu')#+self.D_src_x2.get_weights()
+                        self.D_src_dst_opt.initialize_variables ( self.D_src.get_trainable_weights(), vars_on_cpu=optimizer_vars_on_cpu, lr_dropout_on_cpu=self.options['lr_dropout']=='cpu')#+self.D_src_x2.get_weights()
                         self.model_filename_list += [ (self.D_src_dst_opt, 'D_src_v2_opt.npy') ]
                     else:
                         self.D_src_dst_opt = OptimizerClass(lr=lr, lr_dropout=lr_dropout, clipnorm=clipnorm, name='GAN_opt')
-                        self.D_src_dst_opt.initialize_variables ( self.D_src.get_weights(), vars_on_cpu=optimizer_vars_on_cpu, lr_dropout_on_cpu=self.options['lr_dropout']=='cpu')#+self.D_src_x2.get_weights()
+                    self.D_src_dst_opt.initialize_variables ( self.D_src.get_trainable_weights(), vars_on_cpu=optimizer_vars_on_cpu, lr_dropout_on_cpu=self.options['lr_dropout']=='cpu')#+self.D_src_x2.get_weights()
                         self.model_filename_list += [ (self.D_src_dst_opt, 'GAN_opt.npy') ]
 
         if self.is_training:
@@ -553,7 +564,7 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
                         gpu_D_code_loss = (DLoss(gpu_src_code_d_ones , gpu_dst_code_d) + \
                                            DLoss(gpu_src_code_d_zeros, gpu_src_code_d) ) * 0.5
 
-                        gpu_D_code_loss_gvs += [ nn.gradients (gpu_D_code_loss, self.code_discriminator.get_weights() ) ]
+                        gpu_D_code_loss_gvs += [ nn.gradients (gpu_D_code_loss, self.code_discriminator.get_trainable_weights() ) ]
 
                     if gan_power != 0:
                         gpu_pred_src_src_d, \
@@ -591,7 +602,7 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
                                              + DLoss(gpu_target_src_d2_smooth_ones, gpu_target_src_d2) \
                                              + DLoss(gpu_pred_src_src_d2_smooth_zeros, gpu_pred_src_src_d2)
 
-                        gpu_D_src_dst_loss_gvs += [ nn.gradients (gpu_D_src_dst_loss, self.D_src.get_weights() ) ]#+self.D_src_x2.get_weights()
+                        gpu_D_src_dst_loss_gvs += [ nn.gradients (gpu_D_src_dst_loss, self.D_src.get_trainable_weights() ) ]#+self.D_src_x2.get_weights()
 
                         gpu_G_loss += gan_power*(DLoss(gpu_pred_src_src_d_ones, gpu_pred_src_src_d)  + \
                                                  DLoss(gpu_pred_src_src_d2_ones, gpu_pred_src_src_d2))

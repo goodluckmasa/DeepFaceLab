@@ -8,13 +8,20 @@ from core.leras import nn
 tf = nn.tf
 
 class Saveable():
-    def __init__(self, name=None):
+    def __init__(self, name=None, trainable=True):
         self.name = name
+        self._trainable = trainable
 
     #override
     def get_weights(self):
         #return tf tensors that should be initialized/loaded/saved
         return []
+
+    def get_trainable_weights(self):
+        if self._trainable:
+            return self.get_weights()
+        else:
+            return []
 
     #override
     def get_weights_np(self):
@@ -97,10 +104,10 @@ class Saveable():
             nn.batch_set_value(tuples)
         except:
             return False
-            
+
         return True
 
     def init_weights(self):
         nn.init_weights(self.get_weights())
-    
+
 nn.Saveable = Saveable
