@@ -76,16 +76,16 @@ class DeepFakeArchi(nn.ArchiBase):
                     self.in_ch = in_ch
                     self.e_ch = e_ch
                     super().__init__(**kwargs)
-                    
-                def on_build(self):                    
+
+                def on_build(self):
                     self.down1 = DownscaleBlock(self.in_ch, self.e_ch, n_downscales=4, kernel_size=5)
 
                 def forward(self, inp):
                     return nn.flatten(self.down1(inp))
-                    
+
                 def get_out_res(self, res):
                     return res // (2**4)
-                    
+
                 def get_out_ch(self):
                     return self.e_ch * 8
 
@@ -121,6 +121,29 @@ class DeepFakeArchi(nn.ArchiBase):
                 def get_out_ch(self):
                     return self.ae_out_ch
 
+            class MaskDecoder(nn.ModelBase):
+                def on_build(self, in_ch, d_mask_ch):
+                    self.upscalem0 = Upscale(in_ch, d_mask_ch*8, kernel_size=3)
+                    self.upscalem1 = Upscale(d_mask_ch*8, d_mask_ch*4, kernel_size=3)
+                    self.upscalem2 = Upscale(d_mask_ch*4, d_mask_ch*2, kernel_size=3)
+
+                    if 'd' in opts:
+                        self.upscalem3 = Upscale(d_mask_ch*2, d_mask_ch*1, kernel_size=3)
+                        self.out_convm = nn.Conv2D( d_mask_ch*1, 1, kernel_size=1, padding='SAME')
+                    else:
+                        self.out_convm = nn.Conv2D( d_mask_ch*2, 1, kernel_size=1, padding='SAME')
+
+                def forward(self, inp):
+                    z = inp
+                    m = self.upscalem0(z)
+                    m = self.upscalem1(m)
+                    m = self.upscalem2(m)
+                    if 'd' in opts:
+                        m = self.upscalem3(m)
+                    m = tf.nn.sigmoid(self.out_convm(m))
+
+                    return m
+
             class Decoder(nn.ModelBase):
                 def on_build(self, in_ch, d_ch, d_mask_ch ):
                     self.upscale0 = Upscale(in_ch, d_ch*8, kernel_size=3)
@@ -133,19 +156,12 @@ class DeepFakeArchi(nn.ArchiBase):
 
                     self.out_conv  = nn.Conv2D( d_ch*2, 3, kernel_size=1, padding='SAME')
 
-                    self.upscalem0 = Upscale(in_ch, d_mask_ch*8, kernel_size=3)
-                    self.upscalem1 = Upscale(d_mask_ch*8, d_mask_ch*4, kernel_size=3)
-                    self.upscalem2 = Upscale(d_mask_ch*4, d_mask_ch*2, kernel_size=3)
-                    self.out_convm = nn.Conv2D( d_mask_ch*2, 1, kernel_size=1, padding='SAME')
-
                     if 'd' in opts:
                         self.out_conv1  = nn.Conv2D( d_ch*2, 3, kernel_size=3, padding='SAME')
                         self.out_conv2  = nn.Conv2D( d_ch*2, 3, kernel_size=3, padding='SAME')
                         self.out_conv3  = nn.Conv2D( d_ch*2, 3, kernel_size=3, padding='SAME')
-                        self.upscalem3 = Upscale(d_mask_ch*2, d_mask_ch*1, kernel_size=3)
-                        self.out_convm = nn.Conv2D( d_mask_ch*1, 1, kernel_size=1, padding='SAME')
-                    else:
-                        self.out_convm = nn.Conv2D( d_mask_ch*2, 1, kernel_size=1, padding='SAME')
+
+                    self.mask_decoder = MaskDecoder(in_ch, d_mask_ch)
 
                 def forward(self, inp):
                     z = inp
@@ -194,16 +210,10 @@ class DeepFakeArchi(nn.ArchiBase):
                     else:
                         x = tf.nn.sigmoid(self.out_conv(x))
 
-
-                    m = self.upscalem0(z)
-                    m = self.upscalem1(m)
-                    m = self.upscalem2(m)
-                    if 'd' in opts:
-                        m = self.upscalem3(m)
-                    m = tf.nn.sigmoid(self.out_convm(m))
+                    m = self.mask_decoder(z)
 
                     return x, m
-        
+
         self.Encoder = Encoder
         self.Inter = Inter
         self.Decoder = Decoder
