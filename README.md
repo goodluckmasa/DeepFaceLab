@@ -1,5 +1,9 @@
-﻿# CHANGELOG 
+﻿[![Patreon](https://c5.patreon.com/external/logo/become_a_patron_button@2x.png)](https://www.patreon.com/bePatron?u=22997465)
+
+# CHANGELOG 
 ### [View most recent changes](CHANGELOG.md)
+
+![](doc/dfl_cover.png)
 
 <table align="center" border="0">
 

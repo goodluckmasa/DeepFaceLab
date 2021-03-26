@@ -6,9 +6,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### In Progress
-- [MS-SSIM loss training option](https://github.com/faceshiftlabs/DeepFaceLab/tree/feature/ms-ssim-loss-2)
 - [Freezeable layers (encoder/decoder/etc.)](https://github.com/faceshiftlabs/DeepFaceLab/tree/feature/freezable-weights)
-- [GAN stability improvements](https://github.com/faceshiftlabs/DeepFaceLab/tree/feature/gan-updates)
+
+## [1.4.1] - 2020-03-24
+### Fixed
+- When both Background Power and MS-SSIM were enabled, the src and dst losses were being overwritten with the 
+  "background power" losses. Fixed so "background power" losses are properly added with the total losses.
+    - *Note: since all the other losses were being skipped when ms-ssim and background loss were being enabled, this had 
+      the side-effect of lowering the memory requirements (and raising the max batch size). With this fix, you may 
+      experience an OOM error on models ran with both these features enabled. I may revisit this in another feature, 
+      allowing you to manually disable certain loss calculations, for similar performance benefits.*
+
+## [1.4.0] - 2020-03-24
+### Added
+- [MS-SSIM loss training option](doc/features/ms-ssim)
+- GAN version option (v2 - late 2020 or v3 - current GAN)
+- [GAN label smoothing and label noise options](doc/features/gan-options)
+### Fixed
+- Background Power now uses the entire image, not just the area outside of the mask for comparison.
+This should help with rough areas directly next to the mask
+
+## [1.3.0] - 2020-03-20
+### Added
+- [Background Power training option](doc/features/background-power/README.md)
+
+## [1.2.1] - 2020-03-20
+### Fixed
+- Fixes bug with `fs-aug` color mode.
 
 ## [1.2.0] - 2020-03-17
 ### Added
@@ -45,7 +69,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reset stale master branch to [seranus/DeepFaceLab](https://github.com/seranus/DeepFaceLab), 
   21 commits ahead of [iperov/DeepFaceLab](https://github.com/iperov/DeepFaceLab) ([compare](https://github.com/iperov/DeepFaceLab/compare/4818183...seranus:3f5ae05))
 
-[Unreleased]: https://github.com/olivierlacan/keep-a-changelog/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/olivierlacan/keep-a-changelog/compare/v1.4.1...HEAD
+[1.4.1]: https://github.com/faceshiftlabs/DeepFaceLab/compare/v1.4.0...v1.4.1
+[1.4.0]: https://github.com/faceshiftlabs/DeepFaceLab/compare/v1.3.0...v1.4.0
+[1.3.0]: https://github.com/faceshiftlabs/DeepFaceLab/compare/v1.2.1...v1.3.0
+[1.2.1]: https://github.com/faceshiftlabs/DeepFaceLab/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/faceshiftlabs/DeepFaceLab/compare/v1.1.5...v1.2.0
 [1.1.5]: https://github.com/faceshiftlabs/DeepFaceLab/compare/v1.1.4...v1.1.5
 [1.1.4]: https://github.com/faceshiftlabs/DeepFaceLab/compare/v1.1.3...v1.1.4
