@@ -365,7 +365,7 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
                     else:
                         self.D_src_dst_opt = OptimizerClass(lr=lr, lr_dropout=lr_dropout, clipnorm=clipnorm, name='GAN_opt')
                     self.D_src_dst_opt.initialize_variables ( self.D_src.get_trainable_weights(), vars_on_cpu=optimizer_vars_on_cpu, lr_dropout_on_cpu=self.options['lr_dropout']=='cpu')#+self.D_src_x2.get_weights()
-                        self.model_filename_list += [ (self.D_src_dst_opt, 'GAN_opt.npy') ]
+                    self.model_filename_list += [ (self.D_src_dst_opt, 'GAN_opt.npy') ]
 
         if self.is_training:
             # Adjust batch size for multiple GPU
