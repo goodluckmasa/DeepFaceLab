@@ -321,11 +321,16 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
                 inters_out_ch = inter_out_ch*2
                 self.decoder = model_archi.Decoder(in_ch=inters_out_ch, d_ch=d_dims, d_mask_ch=d_mask_dims, name='decoder', trainable=decoder_trainable)
 
-                self.decoder.upscalem0.init_weights()
-                self.decoder.upscalem1.init_weights()
-                self.decoder.upscalem2.init_weights()
-                self.decoder.upscalem3.init_weights()
-                self.decoder.out_convm.init_weights()
+                # self.decoder.upscalem0.init_weights()
+                # self.decoder.upscalem1.init_weights()
+                # self.decoder.upscalem2.init_weights()
+                # self.decoder.upscalem3.init_weights()
+                # self.decoder.out_convm.init_weights()
+
+                print('LAYERS')
+                print(self.decoder.layers)
+                print('LAYERS BY NAME')
+                print(self.decoder.layers_by_name)
 
                 self.model_filename_list += [ [self.encoder,  'encoder.npy'],
                                               [self.inter_AB, 'inter_AB.npy'],
