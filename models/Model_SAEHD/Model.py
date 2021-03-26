@@ -192,7 +192,7 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
             self.options['clipgrad'] = io.input_bool ("Enable gradient clipping", default_clipgrad, help_message="Gradient clipping reduces chance of model collapse, sacrificing speed of training.")
 
             self.options['pretrain'] = io.input_bool ("Enable pretraining mode", default_pretrain, help_message="Pretrain the model with large amount of various faces. After that, model can be used to train the fakes more quickly.")
-            self.options['pretrain-v2'] = io.input_bool ("Enable pretraining mode", default_pretrain_v2, help_message="Only trains one the src path of the model, uses less memory")
+            self.options['pretrain-v2'] = io.input_bool ("Enable pretraining mode (v2)", default_pretrain_v2, help_message="Only trains one the src path of the model, uses less memory")
 
         if self.options['pretrain'] and self.get_pretraining_data_path() is None:
             raise Exception("pretraining_data_path is not defined")
