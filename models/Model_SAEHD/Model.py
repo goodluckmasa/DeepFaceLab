@@ -341,6 +341,16 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
                 OptimizerClass = nn.AdaBelief if adabelief else nn.RMSprop
                 clipnorm = 1.0 if self.options['clipgrad'] else 0.0
 
+                # Freeze any inner layers as requested:
+                if not self.options['learn_mask']:
+                    mask_layers = []
+                    if 'df' in archi_type:
+                        mask_layers = self.decoder_src.get_mask_layers() + self.decoder_dst.get_mask_layers()
+                    elif 'liae' in archi_type:
+                        mask_layers = self.decoder.get_mask_layers()
+                    for layer in mask_layers:
+                        layer._trainable = False
+
                 if 'df' in archi_type:
                     self.src_dst_trainable_weights = self.encoder.get_trainable_weights() + self.inter.get_trainable_weights() + self.decoder_src.get_trainable_weights() + self.decoder_dst.get_trainable_weights()
                 elif 'liae' in archi_type:
