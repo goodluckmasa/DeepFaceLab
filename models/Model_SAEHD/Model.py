@@ -876,25 +876,7 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
                 ar = S[i]*target_srcm[i], SS[i]*SSM[i], D[i]*target_dstm[i], DD[i]*DDM[i], SD[i]*SD_mask
                 st_m.append ( np.concatenate ( ar, axis=1) )
 
-            result += [ ('SAEHD masked (predicted)', np.concatenate (st_m, axis=0 )), ]
-
-            st_m = []
-            for i in range(n_samples):
-                SD_mask = target_dstm[i]*SDM[i]
-
-                ar = S[i]*target_srcm[i], SS[i]*target_srcm[i], D[i]*target_dstm[i], DD[i]*target_dstm[i], SD[i]*SD_mask
-                st_m.append ( np.concatenate ( ar, axis=1) )
-
-            result += [ ('SAEHD masked (target)', np.concatenate (st_m, axis=0 )), ]
-
-            st_m = []
-            for i in range(n_samples):
-                SD_mask = target_dstm_em[i]*SDM[i]
-
-                ar = S[i]*target_srcm_em[i], SS[i]*target_srcm_em[i], D[i]*target_dstm_em[i], DD[i]*target_dstm_em[i], SD[i]*SD_mask
-                st_m.append ( np.concatenate ( ar, axis=1) )
-
-            result += [ ('SAEHD masked (eyes and mouth)', np.concatenate (st_m, axis=0 )), ]
+            result += [ ('SAEHD masked', np.concatenate (st_m, axis=0 )), ]
         else:
             result = []
 
