@@ -43,6 +43,7 @@ class SAEHDModel(ModelBase):
         default_d_dims             = self.options['d_dims']             = self.options.get('d_dims', None)
         default_d_mask_dims        = self.options['d_mask_dims']        = self.options.get('d_mask_dims', None)
         default_masked_training    = self.options['masked_training']    = self.load_or_def_option('masked_training', True)
+        default_learn_mask         = self.options['learn_mask']         = self.load_or_def_option('learn_mask', True)
         default_eyes_prio          = self.options['eyes_prio']          = self.load_or_def_option('eyes_prio', False)
         default_mouth_prio         = self.options['mouth_prio']         = self.load_or_def_option('mouth_prio', False)
         default_uniform_yaw        = self.options['uniform_yaw']        = self.load_or_def_option('uniform_yaw', False)
@@ -135,6 +136,7 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
             if self.options['face_type'] == 'wf' or self.options['face_type'] == 'head' or self.options['face_type'] == 'custom':
                 self.options['masked_training']  = io.input_bool ("Masked training", default_masked_training, help_message="This option is available only for 'whole_face' or 'head' type. Masked training clips training area to full_face mask or XSeg mask, thus network will train the faces properly.")
 
+            self.options['learn_mask'] = io.input_bool ("Learn mask", default_learn_mask, help_message="") # TODO: help message
             self.options['eyes_prio'] = io.input_bool ("Eyes priority", default_eyes_prio, help_message='Helps to fix eye problems during training like "alien eyes" and wrong eyes direction ( especially on HD architectures ) by forcing the neural network to train eyes with higher priority. before/after https://i.imgur.com/YQHOuSR.jpg ')
             self.options['mouth_prio'] = io.input_bool ("Mouth priority", default_mouth_prio, help_message='Helps to fix mouth problems during training by forcing the neural network to train mouth with higher priority similar to eyes ')
 
@@ -471,7 +473,8 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
 
                         gpu_src_loss += tf.reduce_mean ( 300*tf.abs ( gpu_target_src*gpu_target_part_mask - gpu_pred_src_src*gpu_target_part_mask ), axis=[1,2,3])
 
-                    gpu_src_loss += tf.reduce_mean ( 10*tf.square( gpu_target_srcm - gpu_pred_src_srcm ),axis=[1,2,3] )
+                    if self.options['learn_mask']:
+                        gpu_src_loss += tf.reduce_mean ( 10*tf.square( gpu_target_srcm - gpu_pred_src_srcm ),axis=[1,2,3] )
 
                     if self.options['background_power'] > 0:
                         bg_factor = self.options['background_power']
@@ -527,7 +530,8 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
                                 gpu_dst_loss += bg_factor * tf.reduce_mean ( 5*nn.dssim(gpu_target_dst, gpu_pred_dst_dst, max_val=1.0, filter_size=int(resolution/23.2)), axis=[1])
                         gpu_dst_loss += bg_factor * tf.reduce_mean ( 10*tf.square ( gpu_target_dst - gpu_pred_dst_dst ), axis=[1,2,3])
 
-                    gpu_dst_loss += tf.reduce_mean ( 10*tf.square( gpu_target_dstm - gpu_pred_dst_dstm ),axis=[1,2,3] )
+                    if self.options['learn_mask']:
+                        gpu_dst_loss += tf.reduce_mean ( 10*tf.square( gpu_target_dstm - gpu_pred_dst_dstm ),axis=[1,2,3] )
 
                     gpu_src_losses += [gpu_src_loss]
                     gpu_dst_losses += [gpu_dst_loss]
