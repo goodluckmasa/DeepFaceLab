@@ -723,16 +723,19 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
             if do_init:
                 model.init_weights()
 
-        print('LAYERS')
-        print(self.decoder.layers)
-        print('LAYERS BY NAME')
-        print(self.decoder.layers_by_name)
+        # test
+        for layer in self.decoder.get_mask_layers():
+            layer.init_weights()
 
-        self.decoder.upscalem0.init_weights()
-        self.decoder.upscalem1.init_weights()
-        self.decoder.upscalem2.init_weights()
-        self.decoder.upscalem3.init_weights()
-        self.decoder.out_convm.init_weights()
+        # Freeze any inner layers as requested:
+        if not self.options['learn_mask']:
+            mask_layers = []
+            if 'df' in archi_type:
+                mask_layers = self.decoder_src.get_mask_layers() + self.decoder_dst.get_mask_layers()
+            elif 'liae' in archi_type:
+                mask_layers = self.decoder.get_mask_layers()
+            for layer in mask_layers:
+                layer._trainable = False
 
         # initializing sample generators
         if self.is_training:
