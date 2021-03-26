@@ -122,7 +122,7 @@ class DeepFakeArchi(nn.ArchiBase):
                     return self.ae_out_ch
 
             class Decoder(nn.ModelBase):
-                def on_build(self, in_ch, d_ch, d_mask_ch ):
+                def on_build(self, in_ch, d_ch, d_mask_ch, mask_trainable):
                     self.upscale0 = Upscale(in_ch, d_ch*8, kernel_size=3)
                     self.upscale1 = Upscale(d_ch*8, d_ch*4, kernel_size=3)
                     self.upscale2 = Upscale(d_ch*4, d_ch*2, kernel_size=3)
@@ -133,19 +133,19 @@ class DeepFakeArchi(nn.ArchiBase):
 
                     self.out_conv  = nn.Conv2D( d_ch*2, 3, kernel_size=1, padding='SAME')
 
-                    self.upscalem0 = Upscale(in_ch, d_mask_ch*8, kernel_size=3)
-                    self.upscalem1 = Upscale(d_mask_ch*8, d_mask_ch*4, kernel_size=3)
-                    self.upscalem2 = Upscale(d_mask_ch*4, d_mask_ch*2, kernel_size=3)
-                    self.out_convm = nn.Conv2D( d_mask_ch*2, 1, kernel_size=1, padding='SAME')
+                    self.upscalem0 = Upscale(in_ch, d_mask_ch*8, kernel_size=3, trainable=mask_trainable)
+                    self.upscalem1 = Upscale(d_mask_ch*8, d_mask_ch*4, kernel_size=3, trainable=mask_trainable)
+                    self.upscalem2 = Upscale(d_mask_ch*4, d_mask_ch*2, kernel_size=3, trainable=mask_trainable)
+                    self.out_convm = nn.Conv2D( d_mask_ch*2, 1, kernel_size=1, padding='SAME', trainable=mask_trainable)
 
                     if 'd' in opts:
                         self.out_conv1  = nn.Conv2D( d_ch*2, 3, kernel_size=3, padding='SAME')
                         self.out_conv2  = nn.Conv2D( d_ch*2, 3, kernel_size=3, padding='SAME')
                         self.out_conv3  = nn.Conv2D( d_ch*2, 3, kernel_size=3, padding='SAME')
-                        self.upscalem3 = Upscale(d_mask_ch*2, d_mask_ch*1, kernel_size=3)
-                        self.out_convm = nn.Conv2D( d_mask_ch*1, 1, kernel_size=1, padding='SAME')
+                        self.upscalem3 = Upscale(d_mask_ch*2, d_mask_ch*1, kernel_size=3, trainable=mask_trainable)
+                        self.out_convm = nn.Conv2D( d_mask_ch*1, 1, kernel_size=1, padding='SAME', trainable=mask_trainable)
                     else:
-                        self.out_convm = nn.Conv2D( d_mask_ch*2, 1, kernel_size=1, padding='SAME')
+                        self.out_convm = nn.Conv2D( d_mask_ch*2, 1, kernel_size=1, padding='SAME', trainable=mask_trainable)
 
                 def forward(self, inp):
                     z = inp
@@ -204,20 +204,6 @@ class DeepFakeArchi(nn.ArchiBase):
 
                     return x, m
 
-                def get_mask_layers(self):
-                    if not self.built:
-                        self.build()
-
-                    layers = [
-                        self.upscalem0,
-                        self.upscalem1,
-                        self.upscalem2,
-                    ]
-                    if 'd' in opts:
-                        layers += [self.upscalem3]
-                    layers += [self.out_convm]
-                    
-                    return layers
 
         self.Encoder = Encoder
         self.Inter = Inter

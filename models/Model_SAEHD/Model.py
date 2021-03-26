@@ -288,6 +288,7 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
         encoder_trainable = not self.options['freeze_encoder']
         inter_trainable = not self.options['freeze_inter']
         decoder_trainable = not self.options['freeze_decoder']
+        mask_trainable = self.options['learn_mask']
 
         with tf.device (models_opt_device):
             if 'df' in archi_type:
@@ -297,8 +298,8 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
                 self.inter = model_archi.Inter (in_ch=encoder_out_ch, ae_ch=ae_dims, ae_out_ch=ae_dims, name='inter', trainable=inter_trainable)
                 inter_out_ch = self.inter.get_out_ch()
 
-                self.decoder_src = model_archi.Decoder(in_ch=inter_out_ch, d_ch=d_dims, d_mask_ch=d_mask_dims, name='decoder_src', trainable=decoder_trainable)
-                self.decoder_dst = model_archi.Decoder(in_ch=inter_out_ch, d_ch=d_dims, d_mask_ch=d_mask_dims, name='decoder_dst', trainable=decoder_trainable)
+                self.decoder_src = model_archi.Decoder(in_ch=inter_out_ch, d_ch=d_dims, d_mask_ch=d_mask_dims, name='decoder_src', trainable=decoder_trainable, mask_trainable=mask_trainable)
+                self.decoder_dst = model_archi.Decoder(in_ch=inter_out_ch, d_ch=d_dims, d_mask_ch=d_mask_dims, name='decoder_dst', trainable=decoder_trainable, mask_trainable=mask_trainable)
 
                 self.model_filename_list += [ [self.encoder,     'encoder.npy'    ],
                                               [self.inter,       'inter.npy'      ],
@@ -319,7 +320,7 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
 
                 inter_out_ch = self.inter_AB.get_out_ch()
                 inters_out_ch = inter_out_ch*2
-                self.decoder = model_archi.Decoder(in_ch=inters_out_ch, d_ch=d_dims, d_mask_ch=d_mask_dims, name='decoder', trainable=decoder_trainable)
+                self.decoder = model_archi.Decoder(in_ch=inters_out_ch, d_ch=d_dims, d_mask_ch=d_mask_dims, name='decoder', trainable=decoder_trainable, mask_trainable=mask_trainable)
 
                 self.model_filename_list += [ [self.encoder,  'encoder.npy'],
                                               [self.inter_AB, 'inter_AB.npy'],
@@ -341,15 +342,16 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
                 OptimizerClass = nn.AdaBelief if adabelief else nn.RMSprop
                 clipnorm = 1.0 if self.options['clipgrad'] else 0.0
 
-                # Freeze any inner layers as requested:
-                if not self.options['learn_mask']:
-                    mask_layers = []
-                    if 'df' in archi_type:
-                        mask_layers = self.decoder_src.get_mask_layers() + self.decoder_dst.get_mask_layers()
-                    elif 'liae' in archi_type:
-                        mask_layers = self.decoder.get_mask_layers()
-                    for layer in mask_layers:
-                        layer._trainable = False
+                # FIXME
+                # # Freeze any inner layers as requested:
+                # if not self.options['learn_mask']:
+                #     mask_layers = []
+                #     if 'df' in archi_type:
+                #         mask_layers = self.decoder_src.get_mask_layers() + self.decoder_dst.get_mask_layers()
+                #     elif 'liae' in archi_type:
+                #         mask_layers = self.decoder.get_mask_layers()
+                #     for layer in mask_layers:
+                #         layer._trainable = False
 
                 if 'df' in archi_type:
                     self.src_dst_trainable_weights = self.encoder.get_trainable_weights() + self.inter.get_trainable_weights() + self.decoder_src.get_trainable_weights() + self.decoder_dst.get_trainable_weights()
@@ -733,19 +735,20 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
             if do_init:
                 model.init_weights()
 
+        # FIXME
         # test
         for layer in self.decoder.get_mask_layers():
             layer.init_weights()
 
-        # Freeze any inner layers as requested:
-        if not self.options['learn_mask']:
-            mask_layers = []
-            if 'df' in archi_type:
-                mask_layers = self.decoder_src.get_mask_layers() + self.decoder_dst.get_mask_layers()
-            elif 'liae' in archi_type:
-                mask_layers = self.decoder.get_mask_layers()
-            for layer in mask_layers:
-                layer._trainable = False
+        # # Freeze any inner layers as requested:
+        # if not self.options['learn_mask']:
+        #     mask_layers = []
+        #     if 'df' in archi_type:
+        #         mask_layers = self.decoder_src.get_mask_layers() + self.decoder_dst.get_mask_layers()
+        #     elif 'liae' in archi_type:
+        #         mask_layers = self.decoder.get_mask_layers()
+        #     for layer in mask_layers:
+        #         layer._trainable = False
 
         # initializing sample generators
         if self.is_training:
