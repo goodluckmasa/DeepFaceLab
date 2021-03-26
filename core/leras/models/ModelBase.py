@@ -81,6 +81,16 @@ class ModelBase(nn.Saveable):
             weights += layer.get_weights()
         return weights
 
+    def get_trainable_weights(self):
+        if not self._trainable:
+            return []
+        if not self.built:
+            self.build()
+        weights = []
+        for layer in self.layers:
+            weights += layer.get_trainable_weights()
+        return weights
+
     def get_layer_by_name(self, name):
         return self.layers_by_name.get(name, None)
 
