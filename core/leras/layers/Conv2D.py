@@ -56,9 +56,8 @@ class Conv2D(nn.LayerBase):
         self.use_wscale = use_wscale
         self.kernel_initializer = kernel_initializer
         self.bias_initializer = bias_initializer
-        self.trainable = trainable
         self.dtype = dtype
-        super().__init__(**kwargs)
+        super().__init__(trainable=trainable, **kwargs)
 
     def build_weights(self):
         kernel_initializer = self.kernel_initializer
