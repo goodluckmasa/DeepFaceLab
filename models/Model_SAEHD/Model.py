@@ -625,6 +625,17 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
                             gpu_G_loss += 0.000001*nn.total_variation_mse(gpu_pred_src_src)
                             gpu_G_loss += 0.02*tf.reduce_mean(tf.square(gpu_pred_src_src_anti_masked-gpu_target_src_anti_masked),axis=[1,2,3] )
 
+                    # FIXME
+                    if not self.options['learn_mask']:
+                        mask_layers = []
+                        if 'df' in archi_type:
+                            mask_layers = self.decoder_src.get_mask_layers() + self.decoder_dst.get_mask_layers()
+                        elif 'liae' in archi_type:
+                            mask_layers = self.decoder.get_mask_layers()
+                        print('MASK LAYERS')
+                        for layer in mask_layers:
+                            print(layer.name, layer._trainable, layer.get_trainable_weights)
+
                     gpu_G_loss_gvs += [ nn.gradients ( gpu_G_loss, self.src_dst_trainable_weights ) ]
 
 
@@ -749,17 +760,6 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
         #         mask_layers = self.decoder.get_mask_layers()
         #     for layer in mask_layers:
         #         layer._trainable = False
-
-        # FIXME
-        if not self.options['learn_mask']:
-            mask_layers = []
-            if 'df' in archi_type:
-                mask_layers = self.decoder_src.get_mask_layers() + self.decoder_dst.get_mask_layers()
-            elif 'liae' in archi_type:
-                mask_layers = self.decoder.get_mask_layers()
-            print('MASK LAYERS')
-            for layer in mask_layers:
-                print(layer.name, layer._trainable, layer.get_trainable_weights)
 
         # initializing sample generators
         if self.is_training:
