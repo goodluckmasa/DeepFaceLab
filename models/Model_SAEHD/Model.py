@@ -750,6 +750,17 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
         #     for layer in mask_layers:
         #         layer._trainable = False
 
+        # FIXME
+        if not self.options['learn_mask']:
+            mask_layers = []
+            if 'df' in archi_type:
+                mask_layers = self.decoder_src.get_mask_layers() + self.decoder_dst.get_mask_layers()
+            elif 'liae' in archi_type:
+                mask_layers = self.decoder.get_mask_layers()
+            print('MASK LAYERS')
+            for layer in mask_layers:
+                print(layer.name, layer._trainable, layer.get_trainable_weights)
+
         # initializing sample generators
         if self.is_training:
             training_data_src_path = self.training_data_src_path if not self.pretrain else self.get_pretraining_data_path()
