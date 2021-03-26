@@ -205,6 +205,9 @@ class DeepFakeArchi(nn.ArchiBase):
                     return x, m
 
                 def get_mask_layers(self):
+                    if not self.built:
+                        self.build()
+
                     layers = [
                         self.upscalem0,
                         self.upscalem1,
@@ -213,6 +216,7 @@ class DeepFakeArchi(nn.ArchiBase):
                     if 'd' in opts:
                         layers += [self.upscalem3]
                     layers += [self.out_convm]
+                    
                     return layers
 
         self.Encoder = Encoder
