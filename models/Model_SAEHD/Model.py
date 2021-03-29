@@ -5,6 +5,7 @@ from functools import partial
 import numpy as np
 
 from core import mathlib
+from core.imagelib.flip.loss import flip_loss
 from core.interact import interact as io
 from core.leras import nn
 from facelib import FaceType
@@ -452,7 +453,7 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
                     gpu_psd_target_dst_style_anti_masked = gpu_pred_src_dst*(1.0 - gpu_target_dstm_style_blur)
 
                     if self.options['ms_ssim_loss']:
-                        gpu_src_loss = 10 * nn.MsSsim(resolution)(gpu_target_src_masked_opt, gpu_pred_src_src_masked_opt, max_val=1.0)
+                        gpu_src_loss = 10 * flip_loss(gpu_target_src_masked_opt, gpu_pred_src_src_masked_opt)
                     else:
                         if resolution < 256:
                             gpu_src_loss =  tf.reduce_mean ( 10*nn.dssim(gpu_target_src_masked_opt, gpu_pred_src_src_masked_opt, max_val=1.0, filter_size=int(resolution/11.6)), axis=[1])
@@ -495,7 +496,7 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
                         gpu_src_loss += tf.reduce_mean( (10*bg_style_power)*tf.square(gpu_psd_target_dst_style_anti_masked - gpu_target_dst_style_anti_masked), axis=[1,2,3] )
 
                     if self.options['ms_ssim_loss']:
-                        gpu_dst_loss = 10 * nn.MsSsim(resolution)(gpu_target_dst_masked_opt, gpu_pred_dst_dst_masked_opt, max_val=1.0)
+                        gpu_dst_loss = 10 * flip_loss(gpu_target_src_masked_opt, gpu_pred_src_src_masked_opt)
                     else:
                         if resolution < 256:
                             gpu_dst_loss = tf.reduce_mean ( 10*nn.dssim(gpu_target_dst_masked_opt, gpu_pred_dst_dst_masked_opt, max_val=1.0, filter_size=int(resolution/11.6) ), axis=[1])
