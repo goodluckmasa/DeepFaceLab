@@ -2,9 +2,8 @@ from core.leras import nn
 tf = nn.tf
 
 
-class PercpLoss(nn.LayerBase):
-
-    def __init__(self, resolution, input_ch=3, **kwargs):
+class PercpLoss(nn.ModelBase):
+    def on_build(self, resolution, input_ch=3):
         vgg19 = tf.keras.applications.VGG19(include_top=False, weights='imagenet',
                                             input_shape=(resolution, resolution, input_ch))
         vgg19.trainable = False
@@ -12,9 +11,7 @@ class PercpLoss(nn.LayerBase):
         feature_map = tf.keras.activations.relu(layer2_2.output)
         self.model = tf.keras.models.Model(vgg19.input, feature_map)
 
-        super().__init__(**kwargs)
-
-    def __call__(self, y_true, y_pred):
+    def forward(self, y_true, y_pred):
         # Transpose images from NCHW to NHWC
         y_true_t = tf.transpose(tf.cast(y_true, tf.float32), [0, 2, 3, 1])
         y_pred_t = tf.transpose(tf.cast(y_pred, tf.float32), [0, 2, 3, 1])
