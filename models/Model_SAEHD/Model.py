@@ -333,7 +333,7 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
                 elif 'liae' in archi_type:
                     self.src_dst_trainable_weights = self.encoder.get_weights() + self.inter_AB.get_weights() + self.inter_B.get_weights() + self.decoder.get_weights()
 
-                self.PercepLoss = nn.PercpLoss(resolution)
+                self.PercepLoss = nn.PercpLoss(resolution, name='VGG19')
 
                 self.src_dst_opt = OptimizerClass(lr=lr, lr_dropout=lr_dropout, clipnorm=clipnorm, name='src_dst_opt')
                 self.src_dst_opt.initialize_variables (self.src_dst_trainable_weights, vars_on_cpu=optimizer_vars_on_cpu, lr_dropout_on_cpu=self.options['lr_dropout']=='cpu')
