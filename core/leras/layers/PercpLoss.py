@@ -5,7 +5,7 @@ tf = nn.tf
 class PercpLoss(nn.LayerBase):
 
     def __init__(self, resolution, input_ch=3, **kwargs):
-        vgg19 = tf.keras.applications.VGG16(include_top=False, weights='imagenet',
+        vgg19 = tf.keras.applications.VGG19(include_top=False, weights='imagenet',
                                             input_shape=(resolution, resolution, input_ch))
         vgg19.trainable = False
         layer2_2 = vgg19.get_layer('block2_conv2')
