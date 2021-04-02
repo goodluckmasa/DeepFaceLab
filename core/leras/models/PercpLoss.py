@@ -4,12 +4,13 @@ tf = nn.tf
 
 class PercpLoss(nn.ModelBase):
     def on_build(self, resolution, input_ch=3):
-        vgg19 = tf.keras.applications.VGG19(include_top=False, weights='imagenet',
-                                            input_shape=(resolution, resolution, input_ch))
-        vgg19.trainable = False
-        layer2_2 = vgg19.get_layer('block2_conv2')
-        feature_map = tf.keras.activations.relu(layer2_2.output)
-        self.model = tf.keras.models.Model(vgg19.input, feature_map)
+        with tf.variable_scope(self.name):
+            vgg19 = tf.keras.applications.VGG19(include_top=False, weights='imagenet',
+                                                input_shape=(resolution, resolution, input_ch))
+            vgg19.trainable = False
+            layer2_2 = vgg19.get_layer('block2_conv2')
+            feature_map = tf.keras.activations.relu(layer2_2.output)
+            self.model = tf.keras.models.Model(vgg19.input, feature_map)
 
     def forward(self, y_true, y_pred):
         # Transpose images from NCHW to NHWC
