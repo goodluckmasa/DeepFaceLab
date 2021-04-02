@@ -14,7 +14,7 @@ class PercpLoss(nn.LayerBase):
 
         super().__init__(**kwargs)
 
-    def __call__(self, y_true, y_pred, max_val):
+    def __call__(self, y_true, y_pred):
         # Transpose images from NCHW to NHWC
         y_true_t = tf.transpose(tf.cast(y_true, tf.float32), [0, 2, 3, 1])
         y_pred_t = tf.transpose(tf.cast(y_pred, tf.float32), [0, 2, 3, 1])
