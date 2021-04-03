@@ -132,7 +132,7 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
             self.options['d_mask_dims'] = d_mask_dims + d_mask_dims % 2
 
         if self.is_first_run() or ask_override:
-            if self.options['face_type'] == 'wf' or self.options['face_type'] == 'head' or self.options['face_type'] == 'custom':
+            if self.options['face_type'] == 'wf' or self.options['face_type'] == 'head' or self.options['face_type'] == 'f':
                 self.options['masked_training']  = io.input_bool ("Masked training", default_masked_training, help_message="This option is available only for 'whole_face' or 'head' type. Masked training clips training area to full_face mask or XSeg mask, thus network will train the faces properly.")
 
             self.options['eyes_prio'] = io.input_bool ("Eyes priority", default_eyes_prio, help_message='Helps to fix eye problems during training like "alien eyes" and wrong eyes direction ( especially on HD architectures ) by forcing the neural network to train eyes with higher priority. before/after https://i.imgur.com/YQHOuSR.jpg ')
@@ -237,14 +237,6 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
 
         self.gan_power = gan_power = 0.0 if self.pretrain else self.options['gan_power']
         random_warp = False if self.pretrain else self.options['random_warp']
-
-        if self.pretrain:
-            self.options_show_override['gan_power'] = 0.0
-            self.options_show_override['random_warp'] = False
-            self.options_show_override['lr_dropout'] = 'n'
-            self.options_show_override['face_style_power'] = 0.0
-            self.options_show_override['bg_style_power'] = 0.0
-            self.options_show_override['uniform_yaw'] = True
 
         masked_training = self.options['masked_training']
         ct_mode = self.options['ct_mode']
@@ -821,7 +813,7 @@ Examples: df, liae, df-d, df-ud, liae-ud, ...
 
         n_samples = min(4, self.get_batch_size(), 800 // self.resolution )
 
-        if self.resolution <= 256:
+        if self.resolution <= 1024:
             result = []
 
             st = []
