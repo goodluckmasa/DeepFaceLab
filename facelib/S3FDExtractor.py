@@ -196,7 +196,7 @@ class S3FDExtractor(object):
         for ltrb in self.refine (olist):
             l,t,r,b = [ x*input_scale for x in ltrb]
             bt = b-t
-            if min(r-l,bt) < 640: #filtering faces < 40pix by any side
+            if min(r-l,bt) < 320: #filtering faces < 40pix by any side
                 continue
             b += bt*0.1 #enlarging bottom line a bit for 2DFAN-4, because default is not enough covering a chin
             detected_faces.append ( [int(x) for x in (l,t,r,b) ] )
